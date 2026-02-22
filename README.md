@@ -1,74 +1,73 @@
-![Windows XP Portfolio Screenshot](assets/readme-hero.png)
+![Windows XP Portfolio Demo](<assets/boot screen/ScreenRecording2026-02-23at2.05.12AMonline-video-cutter.com-ezgif.com-video-to-gif-converter.gif>)
 
-A front-end portfolio built as a Windows XP-style desktop experience.
+This repository is a frontend-only personal portfolio implemented as a Windows XP-style desktop environment in the browser.
 
-This project recreates the feel of XP in the browser: boot/login flow, desktop icons, draggable windows, taskbar/start menu behavior, classic sounds, and retro-styled apps. It is a static site (no backend).
+## Project Scope
 
-## What This Repo Includes
+The project reproduces a full interactive desktop shell experience, including boot and login flow, desktop interaction patterns, window management behavior, system audio events, taskbar/start menu UX, and multiple XP-inspired applications. It is built as a static website with no backend services.
 
-- XP-like session flow: boot screen, login, desktop, shutdown/restart.
-- Desktop shell: draggable icons, selection box, snap-to-grid behavior, keyboard shortcuts.
-- Window system: draggable/focus/minimize/maximize/close windows with XP-style chrome.
-- Taskbar and Start Menu with app launch support.
-- Sound events (startup, click, errors, window actions).
-- Built-in apps:
-  - Notepad (editable, save/new/select-all/time-date/word-wrap)
-  - Paint (drawing canvas + save)
-  - My Computer (Explorer-style layout)
-  - Internet Explorer (embedded web view)
-  - Spotify (modern in-window player with search, full-track playback, seek, queue controls, and volume)
-  - Control Panel (theme/wallpaper/sound toggles)
-  - Command Prompt (mock shell commands)
-- `Resume` shortcut redirects directly to: `https://x.com/vedangstwt`
+## Implemented Features
 
-## Tech Stack
+- Session lifecycle: boot animation, welcome/login flow, desktop launch, shutdown flow, restart flow.
+- Desktop interaction model: icon selection, drag and drop, snap-to-grid placement, rectangle drag selection, keyboard shortcuts.
+- Window manager: open/focus stacking, drag, minimize, maximize/restore, close, taskbar integration, active/inactive window states.
+- XP UI shell: classic taskbar styling, start button/menu behavior, system tray clock, context menus, right-click desktop menu.
+- System sound design: startup, shutdown, click, notification, error, stop, and window action sounds.
+- Personalization: Luna Blue theme path, wallpaper switching, persistent desktop preference state.
+- Desktop app routing: direct external redirects for selected shortcuts and in-window apps for desktop utilities.
 
-- HTML
-- CSS
-- Vanilla JavaScript (modular files in `js/`)
+## Applications Included
 
-No framework, no build step, no server-side code.
+- Notepad: editable text area with classic menu interactions (`new`, `save`, `select all`, `time/date`, `word wrap`).
+- Paint: drawing canvas, tool tray, brush sizing, color palette, clear/new canvas, PNG export.
+- My Computer: Explorer-style layout with system tasks, drive groups, and quick folder links.
+- My Documents: structured folder explorer UI with list/details view and navigation interactions.
+- Internet Explorer: in-window browser frame with XP-style menubar/toolbar/address row.
+- Spotify: in-window media player UI with search, queue controls, seek/progress, and volume control.
+- Media Player Classic: embedded video playback window with classic wrapper styling.
+- Control Panel: appearance, wallpaper, and sound controls with desktop utility actions.
+- Command Prompt: mock shell commands for portfolio navigation and shortcuts.
+- Recycle Bin: delete/restore behavior for desktop items.
 
-## How It Works (High Level)
+## Architecture
 
-- `index.html`: Main shell markup (boot, login, desktop, taskbar, start menu).
-- `js/sessionManager.js`: Session lifecycle (boot/login/shutdown).
-- `js/windowManager.js`: Window lifecycle, icon drag/snap, app launching.
-- `js/appsRegistry.js`: App definitions and app content templates.
-- `js/taskbarController.js`: Start menu and taskbar behavior.
-- `js/contextMenu.js`, `js/clock.js`, `js/soundManager.js`, `js/personalization.js`: Supporting desktop subsystems.
-- `css/*.css`: UI styling split by area (desktop, windows, taskbar, start menu).
+- `index.html`: shell structure for boot, login, desktop, start menu, taskbar, and application host.
+- `js/sessionManager.js`: lifecycle orchestration between boot, login, desktop, and shutdown states.
+- `js/windowManager.js`: core runtime for windows, desktop icon behavior, and app initialization.
+- `js/appsRegistry.js`: app metadata, desktop shortcut registry, and application HTML templates.
+- `js/taskbarController.js`: taskbar button behavior and start menu control logic.
+- `js/contextMenu.js`: desktop and shell context menu rendering/behavior.
+- `js/clock.js`: taskbar clock rendering and popup behavior.
+- `js/soundManager.js`: event sound registry, playback control, and volume management.
+- `js/personalization.js`: wallpaper/theme configuration and persistence.
+- `css/desktop.css`, `css/windows.css`, `css/taskbar.css`, `css/startmenu.css`: XP-specific visual system.
 
-## Run Locally
+## Running Locally
 
-Because this app uses audio/assets/iframes, run it through a local server (recommended), not `file://`.
-
-### Option 1 (Python)
+Run through a local web server (do not open with `file://`).
 
 ```bash
 cd /Users/vedang/Desktop/personal-website
 python3 -m http.server 5500
 ```
 
-Open: `http://localhost:5500`
+Open `http://localhost:5500`.
 
-### Option 2 (Node)
+Alternative:
 
 ```bash
 cd /Users/vedang/Desktop/personal-website
 npx serve .
 ```
 
-Open the URL shown in terminal.
+## Configuration Points
 
-## Customization
+- Profile content, app definitions, redirects: `js/appsRegistry.js`
+- Wallpaper/theme options: `js/personalization.js`
+- Sound assets and mappings: `js/soundManager.js`, `assets/sounds/`
+- Start menu and shell wiring: `index.html`, `js/taskbarController.js`
 
-- Profile text, projects, contacts, app metadata: `js/appsRegistry.js`
-- Wallpapers/themes: `js/personalization.js` + assets
-- Sounds: `js/soundManager.js` + `assets/sounds/`
-- Start menu and desktop app wiring: `index.html` + `js/appsRegistry.js`
+## Constraints
 
-## Notes
-
-- This is a UI/UX portfolio project and does not emulate a full operating system.
-- Some embedded external content (for example Spotify/web pages) depends on third-party availability and browser policies.
+- This is a browser simulation and not an operating system emulator.
+- Embedded third-party media depends on external platform availability and embed policies.
