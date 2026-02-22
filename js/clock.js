@@ -2,6 +2,15 @@ const Clock = {
     viewYear: null,
     viewMonth: null,
 
+    formatTime(date, includeSeconds = false) {
+        const h = date.getHours();
+        const m = date.getMinutes().toString().padStart(2, '0');
+        const seconds = date.getSeconds().toString().padStart(2, '0');
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const hr = (h % 12) || 12;
+        return includeSeconds ? `${hr}:${m}:${seconds} ${ampm}` : `${hr}:${m} ${ampm}`;
+    },
+
     init() {
         this.clockEl = document.getElementById('clock');
         this.popupEl = document.getElementById('clock-popup');
@@ -50,16 +59,10 @@ const Clock = {
 
     update() {
         const now = new Date();
-        const h = now.getHours();
-        const m = now.getMinutes().toString().padStart(2, '0');
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        const hr = (h % 12) || 12;
-
-        this.clockEl.textContent = `${hr}:${m} ${ampm}`;
+        this.clockEl.textContent = this.formatTime(now);
 
         if (this.popupEl.classList.contains('visible')) {
-            const seconds = now.getSeconds().toString().padStart(2, '0');
-            this.popupTimeEl.textContent = `${hr}:${m}:${seconds} ${ampm}`;
+            this.popupTimeEl.textContent = this.formatTime(now, true);
             this.popupDateEl.textContent = now.toLocaleDateString('en-US', {
                 weekday: 'long',
                 month: 'long',
@@ -82,7 +85,7 @@ const Clock = {
     showPopup() {
         if (!this.popupEl) return;
         const now = new Date();
-        this.popupTimeEl.textContent = now.toLocaleTimeString();
+        this.popupTimeEl.textContent = this.formatTime(now, true);
         this.popupDateEl.textContent = now.toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',

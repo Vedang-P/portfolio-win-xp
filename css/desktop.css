@@ -17,7 +17,7 @@ html, body {
 }
 
 :root {
-    --taskbar-height: 48px;
+    --taskbar-height: 38px;
 
     --xp-title-active: linear-gradient(180deg, #0a5ed7 0%, #156adf 18%, #2f7ef0 53%, #1f6dde 100%);
     --xp-title-inactive: linear-gradient(180deg, #93b5df 0%, #adc7ea 34%, #96b4dc 100%);
@@ -117,11 +117,14 @@ body[data-xp-theme="silver"] {
 
 .login-panel {
     position: relative;
-    width: min(520px, 92vw);
+    width: min(560px, 92vw);
     padding: 24px;
-    border: 2px solid #fff;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    border: 2px solid #d8ebff;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 .login-title {
@@ -129,58 +132,81 @@ body[data-xp-theme="silver"] {
     color: #fff;
     font-weight: bold;
     text-shadow: 1px 1px 0 #09306d;
+    margin-bottom: 14px;
 }
 
-.login-subtitle {
-    margin-top: 4px;
-    margin-bottom: 18px;
-    font-size: 14px;
-    color: #d8e7ff;
+.login-users {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
 }
 
 .login-tile {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 4px;
+    background: linear-gradient(180deg, rgba(21, 70, 141, 0.86), rgba(11, 46, 101, 0.86));
+    color: #fff;
+    cursor: pointer;
     display: flex;
     align-items: center;
     gap: 12px;
-    border: 1px solid #ffffff;
     padding: 12px;
-    background: rgba(13, 43, 90, 0.5);
+    text-align: left;
+    transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.login-tile:hover {
+    background: linear-gradient(180deg, rgba(31, 91, 174, 0.92), rgba(14, 58, 120, 0.92));
+}
+
+.login-tile.active {
+    border-color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(166, 212, 255, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.22);
+    background: linear-gradient(180deg, rgba(46, 111, 197, 0.95), rgba(17, 69, 141, 0.95));
+}
+
+.login-tile:focus-visible {
+    outline: 1px dotted #fff;
+    outline-offset: 2px;
 }
 
 .login-tile img {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
 }
 
 .login-user-name {
     color: #fff;
     font-weight: bold;
-    font-size: 16px;
-}
-
-.login-user-role {
-    color: #d1e2ff;
-    font-size: 12px;
+    font-size: 20px;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.58);
 }
 
 .login-button {
     margin-top: 16px;
-    min-width: 110px;
-    padding: 6px 14px;
+    min-width: 118px;
+    padding: 8px 18px;
     border: 1px solid #ffffff;
-    background: var(--xp-start-green);
+    border-radius: 3px;
+    background: linear-gradient(180deg, #84d45f 0%, #5db640 44%, #45952a 100%);
     color: #fff;
     font-weight: bold;
+    font-size: 14px;
+    font-family: Tahoma, Arial, sans-serif;
     cursor: pointer;
     text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .login-button:hover {
-    background: var(--xp-start-green-hover);
+    background: linear-gradient(180deg, #95df72 0%, #68c24a 44%, #4fa533 100%);
 }
 
 .login-button:active {
-    background: var(--xp-start-green-pressed);
+    background: linear-gradient(180deg, #4f9a31 0%, #3f8627 100%);
 }
 
 #desktop {
@@ -199,13 +225,17 @@ body[data-xp-theme="silver"] {
     position: absolute;
     top: 12px;
     left: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 6px;
+    right: 12px;
+    bottom: 12px;
+    display: block;
+    padding: 0;
+    overflow: hidden;
 }
 
 .desktop-icon {
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 98px;
     padding: 5px;
     display: flex;
@@ -227,6 +257,11 @@ body[data-xp-theme="silver"] {
 
 .desktop-icon:active {
     background: rgba(0, 80, 200, 0.3);
+}
+
+.desktop-icon.dragging {
+    z-index: 2;
+    opacity: 0.9;
 }
 
 .desktop-icon .icon-img {
@@ -284,30 +319,104 @@ body[data-xp-theme="silver"] {
 
 .desktop-context-menu {
     position: fixed;
-    min-width: 176px;
-    background: #f3f5ff;
-    border: 1px solid #4b72b8;
-    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.35);
+    min-width: 178px;
+    background: #eceff4;
+    border: 1px solid #a4acb8;
+    box-shadow: 2px 2px 7px rgba(0, 0, 0, 0.35);
     list-style: none;
-    padding: 3px;
+    margin: 0;
+    padding: 2px;
     z-index: 20000;
     display: none;
+    font-family: Tahoma, Arial, sans-serif;
 }
 
 .desktop-context-menu.visible {
     display: block;
 }
 
-.desktop-context-menu li {
-    padding: 5px 8px;
+.desktop-context-menu .context-item {
+    min-height: 31px;
+    padding: 0 8px 0 14px;
     font-size: 11px;
-    color: #122f62;
+    color: #101826;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+}
+
+.desktop-context-menu .context-label {
+    pointer-events: none;
+}
+
+.desktop-context-menu .context-item:hover {
+    background: #316ac5;
+    color: #fff;
+}
+
+.desktop-context-menu .context-item.disabled {
+    color: #8994a8;
+}
+
+.desktop-context-menu .context-item.disabled:hover {
+    background: transparent;
+    color: #8994a8;
+}
+
+.desktop-context-menu .context-separator {
+    height: 1px;
+    margin: 2px 4px;
+    list-style: none;
+    background: #c7ced8;
+}
+
+.desktop-context-menu .submenu-arrow {
+    font-size: 11px;
+    margin-left: 16px;
+    line-height: 1;
+}
+
+.desktop-context-menu .context-submenu {
+    position: absolute;
+    top: -2px;
+    left: calc(100% - 1px);
+    min-width: 320px;
+    margin: 0;
+    padding: 2px;
+    list-style: none;
+    border: 1px solid #a4acb8;
+    background: #eceff4;
+    box-shadow: 2px 2px 7px rgba(0, 0, 0, 0.32);
+    display: none;
+    z-index: 20001;
+}
+
+.desktop-context-menu .has-submenu:hover > .context-submenu {
+    display: block;
+}
+
+.desktop-context-menu .context-subitem {
+    min-height: 37px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #101826;
+    font-size: 11px;
     cursor: default;
 }
 
-.desktop-context-menu li:hover {
+.desktop-context-menu .context-subitem:hover {
     background: #316ac5;
     color: #fff;
+}
+
+.desktop-context-menu .context-subitem img {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
 }
 
 .session-hidden {
@@ -356,19 +465,14 @@ a:hover {
 
 @media (max-width: 760px) {
     :root {
-        --taskbar-height: 40px;
+        --taskbar-height: 34px;
     }
 
     #desktop-icons {
         top: 8px;
         left: 8px;
         right: 8px;
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-content: flex-start;
-        gap: 2px 4px;
-        max-height: calc(100% - 40px);
-        overflow-y: auto;
+        bottom: 8px;
     }
 
     .desktop-icon {
@@ -384,7 +488,11 @@ a:hover {
         font-size: 31px;
     }
 
-    .login-subtitle {
-        font-size: 12px;
+    .login-users {
+        grid-template-columns: 1fr;
+    }
+
+    .login-user-name {
+        font-size: 18px;
     }
 }

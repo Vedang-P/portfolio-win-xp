@@ -2,6 +2,7 @@ const SoundManager = {
     enabled: true,
     unlocked: false,
     storageKey: 'xp-sound-enabled',
+    defaultVolume: 0.85,
 
     files: {
         click: 'assets/sounds/Windows XP Menu Command.wav',
@@ -16,6 +17,9 @@ const SoundManager = {
         stop: 'assets/sounds/Windows XP Critical Stop.wav',
         error: 'assets/sounds/Windows XP Error.wav',
         notify: 'assets/sounds/Windows XP Notify.wav'
+    },
+    volumes: {
+        startup: 0.2125
     },
 
     init() {
@@ -66,7 +70,7 @@ const SoundManager = {
 
         const file = this.files[name] || this.files.click;
         const audio = new Audio(file);
-        audio.volume = 0.85;
+        audio.volume = this.volumes[name] ?? this.defaultVolume;
 
         audio.play().catch(() => {
             /* Autoplay/user-gesture restrictions can still fail intermittently. */

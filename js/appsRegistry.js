@@ -67,7 +67,7 @@ Open the Contact app for direct links.`
     apps: {
         about: {
             id: 'about',
-            name: 'About Me',
+            name: 'Notepad',
             icon: 'assets/icons/Windows XP Icons/0199 - Notepad.ico',
             width: 620,
             height: 450
@@ -91,7 +91,8 @@ Open the Contact app for direct links.`
             name: 'Resume',
             icon: 'assets/icons/Windows XP Icons/0115 - Word Doc.ico',
             width: 600,
-            height: 450
+            height: 450,
+            externalUrl: 'https://x.com/vedangstwt'
         },
         contact: {
             id: 'contact',
@@ -126,8 +127,8 @@ Open the Contact app for direct links.`
             id: 'mycomputer',
             name: 'My Computer',
             icon: 'assets/icons/Windows XP Icons/0018 - My Computer.ico',
-            width: 560,
-            height: 430
+            width: 980,
+            height: 680
         },
         recycle: {
             id: 'recycle',
@@ -140,9 +141,17 @@ Open the Contact app for direct links.`
             id: 'ie',
             name: 'Internet Explorer',
             icon: 'assets/icons/Windows XP Icons/0081 - Internet Explorer.ico',
-            width: 560,
-            height: 360,
-            homepage: 'https://github.com/username'
+            width: 860,
+            height: 560,
+            homepage: 'https://www.google.com/webhp?igu=1'
+        },
+        spotify: {
+            id: 'spotify',
+            name: 'Spotify',
+            icon: 'assets/icons/spotify.svg',
+            width: 900,
+            height: 620,
+            embedUrl: 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?utm_source=generator'
         },
         cmd: {
             id: 'cmd',
@@ -151,6 +160,13 @@ Open the Contact app for direct links.`
             width: 700,
             height: 500,
             isTerminal: true
+        },
+        comingsoon: {
+            id: 'comingsoon',
+            name: 'Coming Soon',
+            icon: 'assets/icons/Windows XP Icons/0062 - Help Document.ico',
+            width: 420,
+            height: 250
         }
     },
 
@@ -162,8 +178,10 @@ Open the Contact app for direct links.`
         return [
             { appId: 'mydocs', name: 'My Documents', icon: this.apps.mydocs.icon },
             { appId: 'mycomputer', name: 'My Computer', icon: this.apps.mycomputer.icon },
+            { appId: 'ie', name: 'Internet Explorer', icon: this.apps.ie.icon },
+            { appId: 'spotify', name: 'Spotify', icon: this.apps.spotify.icon },
             { appId: 'projects', name: 'Projects', icon: this.apps.projects.icon },
-            { appId: 'about', name: 'About Me', icon: this.apps.about.icon },
+            { appId: 'about', name: 'Notepad', icon: this.apps.about.icon },
             { appId: 'resume', name: 'Resume', icon: this.apps.resume.icon },
             { appId: 'skills', name: 'Skills', icon: this.apps.skills.icon },
             { appId: 'paint', name: 'Paint', icon: this.apps.paint.icon },
@@ -204,21 +222,17 @@ Open the Contact app for direct links.`
                 return '<div class="contact-content"><p>Recycle Bin is empty.</p></div>';
             case 'ie':
                 return this.generateIEHTML(app);
+            case 'spotify':
+                return this.generateSpotifyHTML(app);
+            case 'comingsoon':
+                return this.generateComingSoonHTML();
             default:
                 return '<div class="window-content">Content not found</div>';
         }
     },
 
     generateAboutHTML() {
-        return `
-            <div class="xp-pane">
-                <div class="xp-pane-header">
-                    <div class="xp-pane-title">${this.profile.displayName}</div>
-                    <div class="xp-pane-subtitle">${this.profile.role} - ${this.profile.location}</div>
-                </div>
-                <textarea class="notepad-content" readonly>${this.profile.summary}</textarea>
-            </div>
-        `;
+        return this.generateNotepadLikeHTML('', { editable: true });
     },
 
     generateProjectsHTML() {
@@ -256,7 +270,75 @@ Open the Contact app for direct links.`
     },
 
     generateResumeHTML() {
-        return `<textarea class="notepad-content" readonly>${this.profile.resume.content}</textarea>`;
+        return this.generateNotepadLikeHTML(this.profile.resume.content);
+    },
+
+    escapeHTML(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+
+    generateNotepadLikeHTML(text, options = {}) {
+        const safeText = this.escapeHTML(text);
+
+        if (options.editable) {
+            return `
+                <div class="notepad-shell notepad-shell-editable" data-notepad-shell>
+                    <div class="notepad-menubar" role="menubar">
+                        <div class="notepad-menu-group" data-notepad-group="file">
+                            <button type="button" class="notepad-menu-button" data-notepad-menu="file">File</button>
+                            <ul class="notepad-menu-dropdown" data-notepad-dropdown="file">
+                                <li><button type="button" data-notepad-action="new">New</button></li>
+                                <li><button type="button" data-notepad-action="save">Save</button></li>
+                                <li class="menu-separator" aria-hidden="true"></li>
+                                <li><button type="button" data-notepad-action="exit">Exit</button></li>
+                            </ul>
+                        </div>
+                        <div class="notepad-menu-group" data-notepad-group="edit">
+                            <button type="button" class="notepad-menu-button" data-notepad-menu="edit">Edit</button>
+                            <ul class="notepad-menu-dropdown" data-notepad-dropdown="edit">
+                                <li><button type="button" data-notepad-action="select-all">Select All</button></li>
+                                <li><button type="button" data-notepad-action="time-date">Time/Date</button></li>
+                            </ul>
+                        </div>
+                        <div class="notepad-menu-group" data-notepad-group="format">
+                            <button type="button" class="notepad-menu-button" data-notepad-menu="format">Format</button>
+                            <ul class="notepad-menu-dropdown" data-notepad-dropdown="format">
+                                <li><button type="button" data-notepad-action="word-wrap">Word Wrap</button></li>
+                            </ul>
+                        </div>
+                        <div class="notepad-menu-group" data-notepad-group="help">
+                            <button type="button" class="notepad-menu-button" data-notepad-menu="help">Help</button>
+                            <ul class="notepad-menu-dropdown" data-notepad-dropdown="help">
+                                <li><button type="button" data-notepad-action="about-notepad">About Notepad</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="notepad-editor-wrap">
+                        <textarea class="notepad-content" data-notepad-editor spellcheck="false" wrap="off">${safeText}</textarea>
+                    </div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="notepad-shell">
+                <div class="notepad-menubar">
+                    <span class="notepad-menu-item">File</span>
+                    <span class="notepad-menu-item">Edit</span>
+                    <span class="notepad-menu-item">Format</span>
+                    <span class="notepad-menu-item">View</span>
+                    <span class="notepad-menu-item active">Help</span>
+                </div>
+                <div class="notepad-editor-wrap">
+                    <textarea class="notepad-content" readonly spellcheck="false">${safeText}</textarea>
+                </div>
+            </div>
+        `;
     },
 
     generateContactHTML() {
@@ -293,8 +375,6 @@ Open the Contact app for direct links.`
                     <div class="control-title">Appearance</div>
                     <div class="control-options">
                         <button class="control-chip ${theme === 'luna-blue' ? 'active' : ''}" data-theme="luna-blue">Luna Blue</button>
-                        <button class="control-chip ${theme === 'olive' ? 'active' : ''}" data-theme="olive">Olive Green</button>
-                        <button class="control-chip ${theme === 'silver' ? 'active' : ''}" data-theme="silver">Silver</button>
                     </div>
                 </div>
 
@@ -377,29 +457,174 @@ Open the Contact app for direct links.`
 
     generateMyComputerHTML() {
         return `
-            <div class="xp-list">
-                <div class="xp-list-header">System</div>
-                <ul>
-                    <li class="xp-list-item">
-                        <img src="assets/icons/Windows XP Icons/0023 - Hard drive.ico" alt="">
-                        <span>Local Disk (C:) - Portfolio Files</span>
-                    </li>
-                    <li class="xp-list-item">
-                        <img src="assets/icons/Windows XP Icons/0027 - CDROM Drive.ico" alt="">
-                        <span>CD Drive (D:) - Archived Builds</span>
-                    </li>
-                </ul>
+            <div class="mycomputer-shell">
+                <div class="mycomputer-menubar">
+                    <span>File</span>
+                    <span>View</span>
+                    <span>Favorites</span>
+                    <span>Tools</span>
+                    <span>Help</span>
+                </div>
+
+                <div class="mycomputer-toolbar">
+                    <button class="mc-nav-btn" type="button" aria-label="Back">&#8592;</button>
+                    <span class="mc-nav-label">Back</span>
+                    <button class="mc-nav-btn" type="button" aria-label="Forward">&#8594;</button>
+                    <div class="mc-divider" aria-hidden="true"></div>
+                    <div class="mc-tool-item">
+                        <img src="assets/icons/Windows XP Icons/0031 - Start Find.ico" alt="">
+                        <span>Search</span>
+                    </div>
+                    <div class="mc-tool-item">
+                        <img src="assets/icons/Windows XP Icons/0000 - Open Folder.ico" alt="">
+                        <span>Folders</span>
+                    </div>
+                    <div class="mc-tool-item">
+                        <img src="assets/icons/Windows XP Icons/0089 - Explorer.ico" alt="">
+                    </div>
+                </div>
+
+                <div class="mycomputer-address-row">
+                    <span class="mc-address-label">Address</span>
+                    <div class="mc-address-value">
+                        <img src="assets/icons/Windows XP Icons/0018 - My Computer.ico" alt="">
+                        <span>My Computer</span>
+                    </div>
+                    <button class="mc-go-btn" type="button" aria-label="Go">&#8594;</button>
+                </div>
+
+                <div class="mycomputer-main">
+                    <aside class="mycomputer-sidebar">
+                        <section class="mc-side-group">
+                            <header class="mc-side-header">
+                                <span>System Tasks</span>
+                                <span class="mc-chev">&#710;</span>
+                            </header>
+                            <ul class="mc-side-list">
+                                <li>
+                                    <img src="assets/icons/Windows XP Icons/0015 - Control Panel.ico" alt="">
+                                    <span>View system information</span>
+                                </li>
+                                <li>
+                                    <img src="assets/icons/Windows XP Icons/0122 - Install Icon.ico" alt="">
+                                    <span>Add or remove programs</span>
+                                </li>
+                                <li>
+                                    <img src="assets/icons/Windows XP Icons/0159 - Other Control Panel Options.ico" alt="">
+                                    <span>Change a setting</span>
+                                </li>
+                            </ul>
+                        </section>
+
+                        <section class="mc-side-group">
+                            <header class="mc-side-header">
+                                <span>Other Places</span>
+                                <span class="mc-chev">&#710;</span>
+                            </header>
+                            <ul class="mc-side-list">
+                                <li>
+                                    <img src="assets/icons/Windows XP Icons/0018 - My Computer.ico" alt="">
+                                    <span>My Computer</span>
+                                </li>
+                                <li>
+                                    <img src="assets/icons/Windows XP Icons/0003 - My Pictures.ico" alt="">
+                                    <span>My Pictures</span>
+                                </li>
+                                <li>
+                                    <img src="assets/icons/Windows XP Icons/0004 - My Music.ico" alt="">
+                                    <span>My Music</span>
+                                </li>
+                                <li>
+                                    <img src="assets/icons/Windows XP Icons/0019 - Network Neighborhood.ico" alt="">
+                                    <span>My Network Places</span>
+                                </li>
+                            </ul>
+                        </section>
+                    </aside>
+
+                    <section class="mycomputer-content">
+                        <div class="mc-content-group">
+                            <h3>Files Stored on This Computer</h3>
+                            <div class="mc-items">
+                                <div class="mc-item">
+                                    <img src="assets/icons/Windows XP Icons/0004 - My Music.ico" alt="">
+                                    <span>My Music</span>
+                                </div>
+                                <div class="mc-item">
+                                    <img src="assets/icons/Windows XP Icons/0003 - My Pictures.ico" alt="">
+                                    <span>My Pictures</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mc-content-group">
+                            <h3>Hard Disk Drives</h3>
+                            <div class="mc-items">
+                                <div class="mc-item">
+                                    <img src="assets/icons/Windows XP Icons/0023 - Hard drive.ico" alt="">
+                                    <span>Local Disk (C:)</span>
+                                </div>
+                                <div class="mc-item">
+                                    <img src="assets/icons/Windows XP Icons/0165 - SCSI Hard Drive.ico" alt="">
+                                    <span>Local Disk (D:)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mc-content-group">
+                            <h3>Devices with Removable Storage</h3>
+                            <div class="mc-items">
+                                <div class="mc-item">
+                                    <img src="assets/icons/Windows XP Icons/0026 - Removable Disk.ico" alt="">
+                                    <span>Removable Device (F:)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
             </div>
         `;
     },
 
     generateIEHTML(app) {
         return `
-            <div class="contact-content ie-content">
-                <img src="${app.icon}" alt="">
-                <p>Internet Explorer</p>
-                <p class="ie-hint">Open portfolio source profile</p>
-                <a href="${app.homepage}" target="_blank" rel="noreferrer" class="ie-link">Open Link</a>
+            <div class="ie-app">
+                <div class="ie-toolbar">
+                    <button class="ie-nav-btn" type="button" aria-label="Back">&#8592;</button>
+                    <button class="ie-nav-btn" type="button" aria-label="Forward">&#8594;</button>
+                    <button class="ie-nav-btn" type="button" aria-label="Refresh">&#8635;</button>
+                    <span class="ie-address-label">Address</span>
+                    <input class="ie-address-bar" type="text" value="${app.homepage}" readonly>
+                    <a class="ie-go-btn" href="${app.homepage}" target="_blank" rel="noreferrer">Go</a>
+                </div>
+                <div class="ie-frame-wrap">
+                    <iframe class="ie-frame" src="${app.homepage}" title="Google"></iframe>
+                </div>
+                <div class="ie-status">Done</div>
+            </div>
+        `;
+    },
+
+    generateSpotifyHTML(app) {
+        return `
+            <div class="spotify-app">
+                <div class="spotify-toolbar">
+                    <div class="spotify-brand">
+                        <img src="${this.apps.spotify.icon}" alt="">
+                        <span>Spotify</span>
+                    </div>
+                    <a class="spotify-open-btn" href="https://open.spotify.com/" target="_blank" rel="noreferrer">Open in Browser</a>
+                </div>
+                <div class="spotify-frame-wrap">
+                    <iframe
+                        class="spotify-frame"
+                        src="${app.embedUrl}"
+                        title="Spotify Player"
+                        loading="lazy"
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    ></iframe>
+                </div>
+                <div class="spotify-status">Spotify Web Player</div>
             </div>
         `;
     },
@@ -419,6 +644,15 @@ Open the Contact app for direct links.`
                     <span class="cmd-prompt">C:\\></span>
                     <input type="text" class="cmd-input" autofocus>
                 </div>
+            </div>
+        `;
+    },
+
+    generateComingSoonHTML() {
+        return `
+            <div class="coming-soon-content">
+                <div class="coming-soon-title">Coming Soon</div>
+                <div class="coming-soon-subtitle">This app will be added in a later update.</div>
             </div>
         `;
     }

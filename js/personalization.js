@@ -4,24 +4,20 @@ const Personalization = {
     theme: 'luna-blue',
     wallpaper: 'assets/wallpapers/background_win_xp.jpg',
 
-    themes: ['luna-blue', 'olive', 'silver'],
+    themes: ['luna-blue'],
 
     wallpapers: {
         bliss: 'assets/wallpapers/background_win_xp.jpg',
         redbull: 'assets/wallpapers/redbull_car.jpg',
         redcar: 'assets/wallpapers/red_car.jpg',
-        verstappen: 'assets/wallpapers/verstappen.webp',
-        night: 'linear-gradient(160deg, #0f2f5d 0%, #1f4f8f 50%, #446da8 100%)',
-        sunset: 'linear-gradient(145deg, #7f2f15 0%, #d0602f 40%, #f1c06f 100%)'
+        verstappen: 'assets/wallpapers/verstappen.webp'
     },
 
     wallpaperOptions: [
         { key: 'bliss', label: 'Bliss' },
-        { key: 'redbull', label: 'Red Bull Car' },
-        { key: 'redcar', label: 'Red Car' },
-        { key: 'verstappen', label: 'Verstappen' },
-        { key: 'night', label: 'Night' },
-        { key: 'sunset', label: 'Sunset' }
+        { key: 'redbull', label: 'Redbull' },
+        { key: 'redcar', label: 'Redbull 2' },
+        { key: 'verstappen', label: 'Mv33' }
     ],
 
     init() {

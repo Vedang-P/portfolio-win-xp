@@ -2,6 +2,7 @@ const SessionManager = {
     initialized: false,
     loggedIn: false,
     hasLoggedInOnce: false,
+    selectedLoginUser: '',
 
     init() {
         this.cacheElements();
@@ -21,27 +22,41 @@ const SessionManager = {
         this.startMenu = document.getElementById('start-menu');
         this.loginScreen = document.getElementById('login-screen');
         this.loginName = document.getElementById('login-user-name');
+        this.loginTiles = this.loginScreen ? Array.from(this.loginScreen.querySelectorAll('.login-tile')) : [];
         this.loginButton = document.getElementById('login-btn');
         this.shutdownScreen = document.getElementById('shutdown-screen');
-        this.shutdownTitle = document.getElementById('shutdown-title');
-        this.shutdownMessage = document.getElementById('shutdown-message');
-        this.shutdownBar = document.getElementById('shutdown-bar-fill');
+        this.shutdownProgressFill = document.getElementById('shutdown-progress-fill');
         this.restartBtn = document.getElementById('restart-btn');
     },
 
     bindLogin() {
         const profileName = AppsRegistry.getProfileName();
+        this.selectedLoginUser = profileName;
+
         if (this.loginName) {
             this.loginName.textContent = profileName;
         }
 
-        if (this.loginButton) {
-            this.loginButton.addEventListener('click', () => this.login());
+        if (this.loginTiles.length) {
+            this.loginTiles.forEach((tile, index) => {
+                const userName = tile.dataset.user || (index === 0 ? profileName : `User ${index + 1}`);
+                tile.dataset.user = userName;
+
+                tile.addEventListener('click', () => {
+                    this.setActiveLoginUser(userName);
+                });
+
+                tile.addEventListener('dblclick', () => {
+                    this.setActiveLoginUser(userName);
+                    this.login();
+                });
+            });
+
+            this.setActiveLoginUser(profileName);
         }
 
-        const tile = this.loginScreen ? this.loginScreen.querySelector('.login-tile') : null;
-        if (tile) {
-            tile.addEventListener('dblclick', () => this.login());
+        if (this.loginButton) {
+            this.loginButton.addEventListener('click', () => this.login());
         }
 
         document.addEventListener('keydown', (event) => {
@@ -50,6 +65,20 @@ const SessionManager = {
                 this.login();
             }
         });
+    },
+
+    setActiveLoginUser(userName) {
+        this.selectedLoginUser = userName || AppsRegistry.getProfileName();
+        this.loginTiles.forEach(tile => {
+            tile.classList.toggle('active', tile.dataset.user === this.selectedLoginUser);
+        });
+    },
+
+    updateStartMenuUserLabel() {
+        const userName = document.querySelector('.user-name');
+        if (!userName) return;
+
+        userName.textContent = this.selectedLoginUser || AppsRegistry.getProfileName();
     },
 
     showLogin() {
@@ -67,6 +96,11 @@ const SessionManager = {
     showShell() {
         this.desktop.classList.remove('session-hidden');
         this.taskbar.classList.remove('session-hidden');
+        if (WindowManager && typeof WindowManager.resetIconsToDefaultPositions === 'function') {
+            setTimeout(() => WindowManager.resetIconsToDefaultPositions(), 0);
+        } else if (WindowManager && typeof WindowManager.clampAllIconsToDesktop === 'function') {
+            setTimeout(() => WindowManager.clampAllIconsToDesktop(), 0);
+        }
     },
 
     hideShell() {
@@ -87,6 +121,7 @@ const SessionManager = {
             this.initialized = true;
         }
 
+        this.updateStartMenuUserLabel();
         this.hideLogin();
         this.showShell();
         this.loggedIn = true;
@@ -112,27 +147,47 @@ const SessionManager = {
         ContextMenu.close();
         WindowManager.closeAll();
         this.hideShell();
+        this.hideLogin();
         this.loggedIn = false;
 
-        this.shutdownTitle.textContent = 'Windows XP';
-        this.shutdownMessage.textContent = 'Windows is shutting down...';
+        this.shutdownScreen.classList.remove('power-stage');
         this.shutdownScreen.classList.add('visible');
-
-        this.shutdownBar.style.width = '0%';
-        this.restartBtn.classList.remove('visible');
+        if (this.shutdownProgressFill) {
+            this.shutdownProgressFill.style.transition = 'none';
+            this.shutdownProgressFill.style.width = '0%';
+            // Force style flush so transition restarts every shutdown cycle.
+            void this.shutdownProgressFill.offsetWidth;
+            this.shutdownProgressFill.style.transition = 'width 1.8s linear';
+        }
 
         setTimeout(() => {
-            this.shutdownBar.style.width = '100%';
             SoundManager.play('shutdown');
+        }, 120);
+
+        setTimeout(() => {
+            if (this.shutdownProgressFill) {
+                this.shutdownProgressFill.style.width = '100%';
+            }
         }, 80);
 
         setTimeout(() => {
-            this.restartBtn.textContent = 'Turn On';
-            this.restartBtn.classList.add('visible');
-        }, 750);
+            this.shutdownScreen.classList.add('power-stage');
+        }, 2050);
 
-        this.restartBtn.onclick = () => {
-            location.reload();
-        };
+        this.restartBtn.onclick = () => this.powerOn();
+    },
+
+    powerOn() {
+        this.shutdownScreen.classList.remove('visible');
+        this.shutdownScreen.classList.remove('power-stage');
+
+        if (this.shutdownProgressFill) {
+            this.shutdownProgressFill.style.transition = 'none';
+            this.shutdownProgressFill.style.width = '0%';
+        }
+
+        BootScreen.init(() => {
+            this.showLogin();
+        });
     }
 };

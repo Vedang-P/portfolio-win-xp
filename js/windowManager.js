@@ -5,6 +5,25 @@ const WindowManager = {
     counter: 0,
     selectedIcon: null,
     clickTimer: null,
+    iconGrid: {
+        slotWidth: 106,
+        slotHeight: 92
+    },
+    iconPositions: {},
+    iconDrag: {
+        active: false,
+        pointerId: null,
+        iconEl: null,
+        appId: '',
+        startX: 0,
+        startY: 0,
+        iconStartX: 0,
+        iconStartY: 0,
+        startSlotCol: 0,
+        startSlotRow: 0,
+        moved: false
+    },
+    suppressIconOpen: '',
     selection: {
         active: false,
         started: false,
@@ -17,9 +36,11 @@ const WindowManager = {
 
     init() {
         DragController.init();
+        this.loadIconPositions();
         this.setupDesktopInteraction();
         this.setupKeyboardShortcuts();
         this.renderIcons();
+        window.addEventListener('resize', () => this.clampAllIconsToDesktop());
     },
 
     setupDesktopInteraction() {
@@ -256,11 +277,308 @@ const WindowManager = {
         this.open(appId);
     },
 
+    loadIconPositions() {
+        this.iconPositions = {};
+        // Clear any old persisted icon layout from previous builds.
+        window.localStorage.removeItem('xp-desktop-icon-positions-v1');
+    },
+
+    saveIconPositions() {
+        // Intentionally no-op: icon layout should reset on refresh/restart/shutdown.
+    },
+
+    getDesktopMetrics() {
+        const desktop = document.getElementById('desktop');
+        const iconContainer = document.getElementById('desktop-icons');
+        const desktopRect = desktop ? desktop.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
+        const taskbarHeight = Number.parseInt(
+            getComputedStyle(document.documentElement).getPropertyValue('--taskbar-height'),
+            10
+        ) || 38;
+        const fallbackWidth = Math.max(220, window.innerWidth - 24);
+        const fallbackHeight = Math.max(180, window.innerHeight - taskbarHeight - 24);
+
+        const containerWidth = iconContainer && iconContainer.clientWidth > 0
+            ? iconContainer.clientWidth
+            : Math.max(220, (desktopRect.width > 0 ? desktopRect.width : fallbackWidth) - 24);
+        const containerHeight = iconContainer && iconContainer.clientHeight > 0
+            ? iconContainer.clientHeight
+            : Math.max(180, (desktopRect.height > 0 ? desktopRect.height : fallbackHeight) - 24);
+        return { containerWidth, containerHeight };
+    },
+
+    getDefaultIconPosition(index) {
+        const { containerHeight } = this.getDesktopMetrics();
+        const { slotWidth, slotHeight } = this.iconGrid;
+        const rows = Math.max(1, Math.floor(containerHeight / slotHeight));
+        const col = Math.floor(index / rows);
+        const row = index % rows;
+
+        return {
+            x: col * slotWidth,
+            y: row * slotHeight
+        };
+    },
+
+    getIconGridBounds(iconEl) {
+        const { containerWidth, containerHeight } = this.getDesktopMetrics();
+        const { slotWidth, slotHeight } = this.iconGrid;
+        const iconWidth = iconEl ? iconEl.offsetWidth : 98;
+        const iconHeight = iconEl ? iconEl.offsetHeight : 86;
+        const cols = Math.max(1, Math.floor((Math.max(0, containerWidth - iconWidth)) / slotWidth) + 1);
+        const rows = Math.max(1, Math.floor((Math.max(0, containerHeight - iconHeight)) / slotHeight) + 1);
+        return { slotWidth, slotHeight, cols, rows };
+    },
+
+    getIconSlotFromCoords(x, y, iconEl) {
+        const { slotWidth, slotHeight, cols, rows } = this.getIconGridBounds(iconEl);
+        return {
+            col: Math.max(0, Math.min(Math.round(x / slotWidth), cols - 1)),
+            row: Math.max(0, Math.min(Math.round(y / slotHeight), rows - 1))
+        };
+    },
+
+    getIconSlotFromElement(iconEl) {
+        const x = Number.parseInt(iconEl.style.left, 10) || 0;
+        const y = Number.parseInt(iconEl.style.top, 10) || 0;
+        return this.getIconSlotFromCoords(x, y, iconEl);
+    },
+
+    findIconAtSlot(targetSlot, excludeAppId = '') {
+        const icons = Array.from(document.querySelectorAll('.desktop-icon'));
+        for (const icon of icons) {
+            const appId = icon.dataset.app || '';
+            if (!appId || appId === excludeAppId) continue;
+            const slot = this.getIconSlotFromElement(icon);
+            if (slot.col === targetSlot.col && slot.row === targetSlot.row) {
+                return icon;
+            }
+        }
+        return null;
+    },
+
+    getOccupiedIconSlots(excludeAppId = '') {
+        const { slotWidth, slotHeight } = this.iconGrid;
+        const occupied = new Set();
+
+        document.querySelectorAll('.desktop-icon').forEach(iconEl => {
+            const appId = iconEl.dataset.app;
+            if (!appId || appId === excludeAppId) return;
+            const x = Number.parseInt(iconEl.style.left, 10) || 0;
+            const y = Number.parseInt(iconEl.style.top, 10) || 0;
+            const col = Math.round(x / slotWidth);
+            const row = Math.round(y / slotHeight);
+            occupied.add(`${col},${row}`);
+        });
+
+        return occupied;
+    },
+
+    findNearestFreeSlot(targetCol, targetRow, cols, rows, occupied) {
+        let best = { col: targetCol, row: targetRow };
+        let bestDist = Number.POSITIVE_INFINITY;
+
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const key = `${col},${row}`;
+                if (occupied.has(key)) continue;
+                const dx = col - targetCol;
+                const dy = row - targetRow;
+                const dist = (dx * dx) + (dy * dy);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = { col, row };
+                }
+            }
+        }
+
+        return best;
+    },
+
+    snapIconPosition(x, y, iconEl, excludeAppId = '') {
+        const { slotWidth, slotHeight, cols, rows } = this.getIconGridBounds(iconEl);
+        const targetCol = Math.max(0, Math.min(Math.round(x / slotWidth), cols - 1));
+        const targetRow = Math.max(0, Math.min(Math.round(y / slotHeight), rows - 1));
+        const occupied = this.getOccupiedIconSlots(excludeAppId);
+        const targetKey = `${targetCol},${targetRow}`;
+
+        let slot = { col: targetCol, row: targetRow };
+        if (occupied.has(targetKey)) {
+            slot = this.findNearestFreeSlot(targetCol, targetRow, cols, rows, occupied);
+        }
+
+        return this.clampIconPosition(slot.col * slotWidth, slot.row * slotHeight, iconEl);
+    },
+
+    clampIconPosition(x, y, iconEl) {
+        const { containerWidth, containerHeight } = this.getDesktopMetrics();
+        const iconWidth = iconEl ? iconEl.offsetWidth : 98;
+        const iconHeight = iconEl ? iconEl.offsetHeight : 86;
+        return {
+            x: Math.max(0, Math.min(Math.round(x), Math.max(0, containerWidth - iconWidth))),
+            y: Math.max(0, Math.min(Math.round(y), Math.max(0, containerHeight - iconHeight)))
+        };
+    },
+
+    setIconPosition(iconEl, position) {
+        const clamped = this.clampIconPosition(position.x, position.y, iconEl);
+        iconEl.style.left = `${clamped.x}px`;
+        iconEl.style.top = `${clamped.y}px`;
+        return clamped;
+    },
+
+    beginIconDrag(event, iconEl, appId) {
+        if (event.button !== 0) return;
+
+        const currentX = Number.parseInt(iconEl.style.left, 10) || 0;
+        const currentY = Number.parseInt(iconEl.style.top, 10) || 0;
+        const startSlot = this.getIconSlotFromCoords(currentX, currentY, iconEl);
+
+        this.iconDrag.active = true;
+        this.iconDrag.pointerId = event.pointerId;
+        this.iconDrag.iconEl = iconEl;
+        this.iconDrag.appId = appId;
+        this.iconDrag.startX = event.clientX;
+        this.iconDrag.startY = event.clientY;
+        this.iconDrag.iconStartX = currentX;
+        this.iconDrag.iconStartY = currentY;
+        this.iconDrag.startSlotCol = startSlot.col;
+        this.iconDrag.startSlotRow = startSlot.row;
+        this.iconDrag.moved = false;
+
+        iconEl.classList.add('dragging');
+        iconEl.setPointerCapture(event.pointerId);
+    },
+
+    updateIconDrag(event) {
+        if (!this.iconDrag.active || this.iconDrag.pointerId !== event.pointerId) return;
+        if (!this.iconDrag.iconEl) return;
+
+        const dx = event.clientX - this.iconDrag.startX;
+        const dy = event.clientY - this.iconDrag.startY;
+        if (!this.iconDrag.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) {
+            return;
+        }
+
+        this.iconDrag.moved = true;
+        const x = this.iconDrag.iconStartX + dx;
+        const y = this.iconDrag.iconStartY + dy;
+        this.setIconPosition(this.iconDrag.iconEl, { x, y });
+    },
+
+    endIconDrag(event) {
+        if (!this.iconDrag.active || this.iconDrag.pointerId !== event.pointerId) return;
+        if (!this.iconDrag.iconEl) return;
+
+        const iconEl = this.iconDrag.iconEl;
+        const appId = this.iconDrag.appId;
+
+        if (this.iconDrag.moved) {
+            const x = Number.parseInt(iconEl.style.left, 10) || 0;
+            const y = Number.parseInt(iconEl.style.top, 10) || 0;
+            const targetSlot = this.getIconSlotFromCoords(x, y, iconEl);
+            const startSlot = {
+                col: this.iconDrag.startSlotCol,
+                row: this.iconDrag.startSlotRow
+            };
+            const { slotWidth, slotHeight } = this.iconGrid;
+
+            const occupant = this.findIconAtSlot(targetSlot, appId);
+            if (occupant) {
+                const occupantAppId = occupant.dataset.app || '';
+                const swapped = this.clampIconPosition(startSlot.col * slotWidth, startSlot.row * slotHeight, occupant);
+                occupant.style.left = `${swapped.x}px`;
+                occupant.style.top = `${swapped.y}px`;
+                if (occupantAppId) {
+                    this.iconPositions[occupantAppId] = swapped;
+                }
+            }
+
+            const snapped = this.clampIconPosition(targetSlot.col * slotWidth, targetSlot.row * slotHeight, iconEl);
+            iconEl.style.left = `${snapped.x}px`;
+            iconEl.style.top = `${snapped.y}px`;
+            this.iconPositions[appId] = snapped;
+            this.saveIconPositions();
+            this.suppressIconOpen = appId;
+        }
+
+        if (iconEl.hasPointerCapture(event.pointerId)) {
+            iconEl.releasePointerCapture(event.pointerId);
+        }
+        iconEl.classList.remove('dragging');
+
+        this.iconDrag.active = false;
+        this.iconDrag.pointerId = null;
+        this.iconDrag.iconEl = null;
+        this.iconDrag.appId = '';
+        this.iconDrag.startSlotCol = 0;
+        this.iconDrag.startSlotRow = 0;
+        this.iconDrag.moved = false;
+    },
+
+    clampAllIconsToDesktop() {
+        const icons = Array.from(document.querySelectorAll('.desktop-icon'));
+        if (!icons.length) return;
+
+        let changed = false;
+        icons.forEach(iconEl => {
+            const appId = iconEl.dataset.app;
+            const x = Number.parseInt(iconEl.style.left, 10) || 0;
+            const y = Number.parseInt(iconEl.style.top, 10) || 0;
+            const snapped = this.snapIconPosition(x, y, iconEl, appId);
+
+            if (snapped.x !== x || snapped.y !== y) {
+                iconEl.style.left = `${snapped.x}px`;
+                iconEl.style.top = `${snapped.y}px`;
+                changed = true;
+            }
+
+            if (appId) {
+                this.iconPositions[appId] = snapped;
+            }
+        });
+
+        if (changed) {
+            this.saveIconPositions();
+        }
+    },
+
+    resetIconsToDefaultPositions() {
+        const icons = Array.from(document.querySelectorAll('.desktop-icon'));
+        if (!icons.length) return;
+
+        const order = AppsRegistry.getDesktopApps();
+        const indexByAppId = new Map(order.map((app, index) => [app.appId, index]));
+
+        this.iconPositions = {};
+        icons.forEach(iconEl => {
+            const appId = iconEl.dataset.app || '';
+            if (!appId || !indexByAppId.has(appId)) return;
+
+            const defaultPos = this.getDefaultIconPosition(indexByAppId.get(appId));
+            const snapped = this.snapIconPosition(defaultPos.x, defaultPos.y, iconEl, appId);
+            iconEl.style.left = `${snapped.x}px`;
+            iconEl.style.top = `${snapped.y}px`;
+            this.iconPositions[appId] = snapped;
+        });
+
+        this.clearIconSelection();
+        this.suppressIconOpen = '';
+    },
+
     renderIcons() {
         const container = document.getElementById('desktop-icons');
         container.innerHTML = '';
 
-        AppsRegistry.getDesktopApps().forEach((app, index) => {
+        const desktopApps = AppsRegistry.getDesktopApps();
+        const appIds = new Set(desktopApps.map(app => app.appId));
+        Object.keys(this.iconPositions).forEach(appId => {
+            if (!appIds.has(appId)) {
+                delete this.iconPositions[appId];
+            }
+        });
+
+        desktopApps.forEach((app, index) => {
             const el = document.createElement('div');
             el.className = 'desktop-icon';
             el.dataset.app = app.appId;
@@ -272,18 +590,46 @@ const WindowManager = {
                 <div class="icon-label">${app.name}</div>
             `;
 
+            container.appendChild(el);
+
+            const savedPosition = this.iconPositions[app.appId];
+            const desired = savedPosition || this.getDefaultIconPosition(index);
+            const positioned = this.snapIconPosition(desired.x, desired.y, el, app.appId);
+            el.style.left = `${positioned.x}px`;
+            el.style.top = `${positioned.y}px`;
+            this.iconPositions[app.appId] = positioned;
+
+            el.addEventListener('pointerdown', (event) => {
+                event.stopPropagation();
+                if (event.button !== 0) return;
+                this.selectIcon(el);
+                this.beginIconDrag(event, el, app.appId);
+            });
+
+            el.addEventListener('pointermove', (event) => this.updateIconDrag(event));
+            el.addEventListener('pointerup', (event) => this.endIconDrag(event));
+            el.addEventListener('pointercancel', (event) => this.endIconDrag(event));
+
             el.addEventListener('click', (event) => {
                 event.stopPropagation();
+                if (this.suppressIconOpen === app.appId) {
+                    this.suppressIconOpen = '';
+                    return;
+                }
                 this.handleIconClick(el);
             });
 
             el.addEventListener('dblclick', (event) => {
                 event.stopPropagation();
+                if (this.suppressIconOpen === app.appId) {
+                    this.suppressIconOpen = '';
+                    return;
+                }
                 this.handleIconDoubleClick(app.appId);
             });
-
-            container.appendChild(el);
         });
+
+        this.saveIconPositions();
     },
 
     open(appId) {
@@ -296,6 +642,11 @@ const WindowManager = {
         const app = AppsRegistry.getApp(appId);
         if (!app) {
             SoundManager.play('stop');
+            return;
+        }
+
+        if (app.externalUrl) {
+            window.location.assign(app.externalUrl);
             return;
         }
 
@@ -327,9 +678,15 @@ const WindowManager = {
                     <span>${app.name}</span>
                 </div>
                 <div class="window-controls">
-                    <button class="window-btn minimize-btn" title="Minimize"><span class="window-glyph">0</span></button>
-                    <button class="window-btn maximize-btn" title="Maximize"><span class="window-glyph">1</span></button>
-                    <button class="window-btn close-btn" title="Close"><span class="window-glyph">r</span></button>
+                    <button class="window-btn minimize-btn" title="Minimize" aria-label="Minimize">
+                        <span class="window-icon window-icon-minimize" aria-hidden="true"></span>
+                    </button>
+                    <button class="window-btn maximize-btn" title="Maximize" aria-label="Maximize">
+                        <span class="window-icon window-icon-maximize" aria-hidden="true"></span>
+                    </button>
+                    <button class="window-btn close-btn" title="Close" aria-label="Close">
+                        <span class="window-icon window-icon-close" aria-hidden="true"></span>
+                    </button>
                 </div>
             </div>
             <div class="window-content">${AppsRegistry.generateContent(app)}</div>
@@ -365,6 +722,10 @@ const WindowManager = {
 
         if (app.id === 'paint') {
             setTimeout(() => this.initPaint(win), 0);
+        }
+
+        if (app.id === 'about') {
+            setTimeout(() => this.initNotepad(win, id), 0);
         }
 
         if (app.isTerminal) {
@@ -551,6 +912,230 @@ const WindowManager = {
         });
     },
 
+    initNotepad(win, id) {
+        const shell = win.querySelector('[data-notepad-shell]');
+        const editor = win.querySelector('[data-notepad-editor]');
+        if (!shell || !editor) return;
+        const windowContent = win.querySelector('.window-content');
+
+        const menuGroups = Array.from(shell.querySelectorAll('.notepad-menu-group'));
+        const menuButtons = Array.from(shell.querySelectorAll('[data-notepad-menu]'));
+        const actionButtons = Array.from(shell.querySelectorAll('[data-notepad-action]'));
+        const wordWrapButton = shell.querySelector('[data-notepad-action="word-wrap"]');
+        let openMenu = '';
+        let wordWrapEnabled = false;
+
+        const closeMenus = () => {
+            openMenu = '';
+            menuGroups.forEach(group => group.classList.remove('open'));
+        };
+
+        const openMenuByName = (menuName) => {
+            openMenu = menuName;
+            menuGroups.forEach(group => {
+                group.classList.toggle('open', group.dataset.notepadGroup === menuName);
+            });
+        };
+
+        const applyWordWrap = () => {
+            editor.classList.toggle('word-wrap', wordWrapEnabled);
+            editor.setAttribute('wrap', wordWrapEnabled ? 'soft' : 'off');
+            if (wordWrapButton) {
+                wordWrapButton.classList.toggle('checked', wordWrapEnabled);
+            }
+        };
+
+        const saveFile = () => {
+            const blob = new Blob([editor.value], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'Untitled.txt';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 0);
+        };
+
+        const insertTextAtCursor = (text) => {
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const current = editor.value;
+            editor.value = `${current.slice(0, start)}${text}${current.slice(end)}`;
+            const cursor = start + text.length;
+            editor.selectionStart = cursor;
+            editor.selectionEnd = cursor;
+            editor.focus();
+        };
+
+        const getTimeDateStamp = () => {
+            const now = new Date();
+            const time = now.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+            const date = now.toLocaleDateString('en-US');
+            return `${time} ${date}`;
+        };
+
+        const showDialog = (title, message) => {
+            if (!windowContent) return;
+
+            const existing = windowContent.querySelector('.notepad-dialog-backdrop');
+            if (existing) existing.remove();
+
+            const backdrop = document.createElement('div');
+            backdrop.className = 'notepad-dialog-backdrop';
+            backdrop.innerHTML = `
+                <div class="notepad-dialog" role="dialog" aria-modal="true" aria-label="${title}">
+                    <div class="notepad-dialog-title">${title}</div>
+                    <div class="notepad-dialog-body">${message}</div>
+                    <div class="notepad-dialog-actions">
+                        <button type="button" class="notepad-dialog-ok">OK</button>
+                    </div>
+                </div>
+            `;
+
+            const closeDialog = () => {
+                backdrop.remove();
+                editor.focus();
+            };
+
+            const okButton = backdrop.querySelector('.notepad-dialog-ok');
+            if (okButton) {
+                okButton.addEventListener('click', () => {
+                    SoundManager.play('click');
+                    closeDialog();
+                });
+                setTimeout(() => okButton.focus(), 0);
+            }
+
+            backdrop.addEventListener('click', (event) => {
+                if (event.target === backdrop) {
+                    SoundManager.play('click');
+                    closeDialog();
+                }
+            });
+
+            backdrop.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' || event.key === 'Enter') {
+                    event.preventDefault();
+                    SoundManager.play('click');
+                    closeDialog();
+                }
+            });
+
+            windowContent.appendChild(backdrop);
+        };
+
+        const runAction = (action, event) => {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            if (!action) return;
+
+            if (action === 'new') {
+                editor.value = '';
+                editor.focus();
+                SoundManager.play('click');
+                return;
+            }
+
+            if (action === 'save') {
+                saveFile();
+                SoundManager.play('click');
+                return;
+            }
+
+            if (action === 'select-all') {
+                editor.focus();
+                editor.select();
+                SoundManager.play('click');
+                return;
+            }
+
+            if (action === 'time-date') {
+                insertTextAtCursor(getTimeDateStamp());
+                SoundManager.play('click');
+                return;
+            }
+
+            if (action === 'word-wrap') {
+                wordWrapEnabled = !wordWrapEnabled;
+                applyWordWrap();
+                SoundManager.play('click');
+                return;
+            }
+
+            if (action === 'about-notepad') {
+                showDialog('About Notepad', 'Simple plain text editor for your desktop shell.');
+                SoundManager.play('click');
+                return;
+            }
+
+            if (action === 'exit') {
+                this.close(id);
+            }
+        };
+
+        menuButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const menuName = button.dataset.notepadMenu;
+                if (openMenu === menuName) {
+                    closeMenus();
+                } else {
+                    openMenuByName(menuName);
+                }
+                event.stopPropagation();
+            });
+        });
+
+        menuGroups.forEach(group => {
+            group.addEventListener('mouseenter', () => {
+                if (!openMenu) return;
+                openMenuByName(group.dataset.notepadGroup);
+            });
+        });
+
+        actionButtons.forEach(button => {
+            button.addEventListener('click', event => {
+                const action = button.dataset.notepadAction;
+                closeMenus();
+                runAction(action, event);
+            });
+        });
+
+        win.addEventListener('mousedown', event => {
+            if (!event.target.closest('.notepad-menu-group')) {
+                closeMenus();
+            }
+        });
+
+        editor.addEventListener('keydown', event => {
+            if (event.key === 'F5') {
+                runAction('time-date', event);
+                return;
+            }
+
+            if (!event.ctrlKey || event.altKey) return;
+
+            const key = event.key.toLowerCase();
+            if (key === 'n') {
+                runAction('new', event);
+            } else if (key === 's') {
+                runAction('save', event);
+            } else if (key === 'a') {
+                runAction('select-all', event);
+            }
+        });
+
+        applyWordWrap();
+        setTimeout(() => editor.focus(), 0);
+    },
+
     initTerminal(win, id) {
         const term = win.querySelector('.cmd-terminal');
         const input = win.querySelector('.cmd-input');
@@ -589,7 +1174,7 @@ const WindowManager = {
         const argument = args.join(' ').toLowerCase();
 
         if (command === 'help') {
-            output = `Available commands:\n  help        - Show this help message\n  whoami      - Display profile name\n  about       - Show summary\n  skills      - List core skills\n  projects    - List projects\n  contact     - List contact links\n  resume      - Show resume file title\n  theme       - Set theme [blue|olive|silver]\n  wallpaper   - Set wallpaper [bliss|redbull|redcar|verstappen|night|sunset]\n  sound       - Set sound [on|off]\n  open        - Open app (about/projects/skills/resume/contact/control/paint)\n  clear       - Clear the terminal\n  date        - Show current date\n  time        - Show current time\n  hostname    - Display computer name`;
+            output = `Available commands:\n  help        - Show this help message\n  whoami      - Display profile name\n  about       - Show summary\n  skills      - List core skills\n  projects    - List projects\n  contact     - List contact links\n  resume      - Show resume file title\n  theme       - Set theme [blue]\n  wallpaper   - Set wallpaper [bliss|redbull|redcar|verstappen]\n  sound       - Set sound [on|off]\n  open        - Open app (about/projects/skills/resume/contact/control/paint/spotify)\n  clear       - Clear the terminal\n  date        - Show current date\n  time        - Show current time\n  hostname    - Display computer name`;
         } else if (command === 'whoami') {
             output = AppsRegistry.profile.displayName;
         } else if (command === 'about') {
@@ -603,13 +1188,13 @@ const WindowManager = {
         } else if (command === 'resume') {
             output = AppsRegistry.profile.resume.title;
         } else if (command === 'theme') {
-            const map = { blue: 'luna-blue', olive: 'olive', silver: 'silver' };
+            const map = { blue: 'luna-blue' };
             const theme = map[argument];
             if (theme) {
                 Personalization.applyTheme(theme);
                 output = `Theme set to ${theme}.`;
             } else {
-                output = 'Usage: theme [blue|olive|silver]';
+                output = 'Usage: theme [blue]';
                 isError = true;
                 feedbackSound = 'stop';
             }
@@ -619,7 +1204,7 @@ const WindowManager = {
                 Personalization.applyWallpaper(wallpaper);
                 output = `Wallpaper set to ${argument}.`;
             } else {
-                output = 'Usage: wallpaper [bliss|redbull|redcar|verstappen|night|sunset]';
+                output = 'Usage: wallpaper [bliss|redbull|redcar|verstappen]';
                 isError = true;
                 feedbackSound = 'stop';
             }
@@ -644,7 +1229,8 @@ const WindowManager = {
                 resume: 'resume',
                 contact: 'contact',
                 control: 'control',
-                paint: 'paint'
+                paint: 'paint',
+                spotify: 'spotify'
             };
 
             const appId = appAliases[argument];
@@ -652,7 +1238,7 @@ const WindowManager = {
                 this.open(appId);
                 output = `Opening ${AppsRegistry.getApp(appId).name}...`;
             } else {
-                output = 'Usage: open [about|projects|skills|resume|contact|control|paint]';
+                output = 'Usage: open [about|projects|skills|resume|contact|control|paint|spotify]';
                 isError = true;
                 feedbackSound = 'stop';
             }
@@ -743,7 +1329,7 @@ const WindowManager = {
         const win = this.windows[id];
         if (!win) return;
 
-        const glyph = win.el.querySelector('.maximize-btn .window-glyph');
+        const maxBtn = win.el.querySelector('.maximize-btn');
 
         if (win.maximized) {
             win.el.classList.remove('maximized');
@@ -752,13 +1338,21 @@ const WindowManager = {
             win.el.style.width = `${win.width}px`;
             win.el.style.height = `${win.height}px`;
             win.maximized = false;
-            if (glyph) glyph.textContent = '1';
+            if (maxBtn) {
+                maxBtn.classList.remove('restore-mode');
+                maxBtn.title = 'Maximize';
+                maxBtn.setAttribute('aria-label', 'Maximize');
+            }
         } else {
             win.x = parseInt(win.el.style.left, 10);
             win.y = parseInt(win.el.style.top, 10);
             win.el.classList.add('maximized');
             win.maximized = true;
-            if (glyph) glyph.textContent = '2';
+            if (maxBtn) {
+                maxBtn.classList.add('restore-mode');
+                maxBtn.title = 'Restore';
+                maxBtn.setAttribute('aria-label', 'Restore');
+            }
         }
     },
 

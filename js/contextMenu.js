@@ -11,32 +11,46 @@ const ContextMenu = {
             this.open(event.clientX, event.clientY);
         });
 
-        document.addEventListener('click', () => this.close());
+        this.menu.addEventListener('click', (event) => {
+            event.stopPropagation();
+
+            const disabledItem = event.target.closest('.context-item.disabled');
+            if (disabledItem) {
+                SoundManager.play('error');
+                return;
+            }
+
+            const actionItem = event.target.closest('[data-action]');
+            if (!actionItem) return;
+
+            this.handleAction(actionItem.dataset.action);
+            this.close();
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!this.menu.contains(event.target)) {
+                this.close();
+            }
+        });
+
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') this.close();
         });
-
-        this.menu.querySelectorAll('li[data-action]').forEach(item => {
-            item.addEventListener('click', (event) => {
-                event.stopPropagation();
-                this.handleAction(item.dataset.action);
-                this.close();
-            });
-        });
-
-        this.updateSoundText();
     },
 
     open(x, y) {
         Taskbar.closeStartMenu();
         Clock.hidePopup();
-        this.updateSoundText();
 
         this.menu.classList.add('visible');
 
         const rect = this.menu.getBoundingClientRect();
-        const maxX = window.innerWidth - rect.width - 8;
-        const maxY = window.innerHeight - rect.height - 8;
+        const submenu = this.menu.querySelector('.context-submenu');
+        const submenuWidth = submenu ? 324 : 0;
+        const submenuHeight = submenu ? 278 : rect.height;
+        const totalHeight = Math.max(rect.height, submenuHeight);
+        const maxX = window.innerWidth - rect.width - submenuWidth - 8;
+        const maxY = window.innerHeight - totalHeight - 8;
 
         this.menu.style.left = `${Math.max(8, Math.min(x, maxX))}px`;
         this.menu.style.top = `${Math.max(8, Math.min(y, maxY))}px`;
@@ -46,31 +60,28 @@ const ContextMenu = {
         this.menu.classList.remove('visible');
     },
 
-    updateSoundText() {
-        const soundItem = this.menu.querySelector('[data-action="toggle-sound"]');
-        if (!soundItem) return;
-        soundItem.textContent = SoundManager.isEnabled() ? 'Mute Sounds' : 'Enable Sounds';
-    },
-
     handleAction(action) {
-        SoundManager.play('click');
-
         if (action === 'refresh') {
+            SoundManager.play('click');
             const icons = document.getElementById('desktop-icons');
             icons.classList.remove('desktop-refresh');
             void icons.offsetWidth;
             icons.classList.add('desktop-refresh');
-        } else if (action === 'show-desktop') {
-            WindowManager.minimizeAll();
-        } else if (action === 'about') {
-            WindowManager.open('about');
-        } else if (action === 'paint') {
-            WindowManager.open('paint');
         } else if (action === 'personalize') {
+            SoundManager.play('click');
             WindowManager.open('control');
-        } else if (action === 'toggle-sound') {
-            SoundManager.toggle();
-            this.updateSoundText();
+        } else if (
+            action === 'new-folder' ||
+            action === 'new-shortcut' ||
+            action === 'new-briefcase' ||
+            action === 'new-bitmap' ||
+            action === 'new-text' ||
+            action === 'new-wave' ||
+            action === 'new-zip'
+        ) {
+            SoundManager.play('error');
+        } else {
+            SoundManager.play('stop');
         }
     }
 };
