@@ -822,14 +822,25 @@
 }
 
 .mydocs-go-btn {
-    width: 28px;
-    height: 24px;
-    border: 1px solid #7f9db9;
-    background: linear-gradient(180deg, #fff, #e3edf9);
-    color: #2a4f88;
-    font-size: 16px;
-    line-height: 1;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #2f7c21;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #73d464 0%, #2daf2d 100%);
+    color: #fff;
+    font-size: 21px;
+    font-weight: 900;
+    line-height: 0.85;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
     padding: 0;
+}
+
+.mydocs-go-btn:hover {
+    background: linear-gradient(180deg, #82dd73 0%, #36b938 100%);
+}
+
+.mydocs-go-btn:active {
+    background: linear-gradient(180deg, #2fa52f 0%, #2a922a 100%);
 }
 
 .mydocs-main {
@@ -1321,15 +1332,25 @@
 
 .mc-go-btn {
     width: 34px;
-    height: 31px;
+    height: 34px;
     margin-right: 10px;
-    border: 1px solid #2c7d1f;
-    border-radius: 4px;
-    background: linear-gradient(180deg, #68cb59 0%, #2ca72c 100%);
+    border: 1px solid #2f7c21;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #73d464 0%, #2daf2d 100%);
     color: #fff;
     font-size: 23px;
-    line-height: 1;
+    font-weight: 900;
+    line-height: 0.85;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
     padding: 0;
+}
+
+.mc-go-btn:hover {
+    background: linear-gradient(180deg, #82dd73 0%, #36b938 100%);
+}
+
+.mc-go-btn:active {
+    background: linear-gradient(180deg, #2fa52f 0%, #2a922a 100%);
 }
 
 .mycomputer-main {
@@ -1879,12 +1900,13 @@
 .control-arrow-btn {
     width: 32px;
     height: 32px;
-    border-radius: 6px;
+    border-radius: 50%;
     border: 1px solid #2f7c21;
     background: linear-gradient(180deg, #73d464 0%, #2daf2d 100%);
     color: #fff;
-    font-size: 21px;
-    line-height: 1;
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 0.85;
     padding: 0;
     text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
 }
@@ -1899,6 +1921,7 @@
 
 .control-arrow-btn-go {
     width: 36px;
+    height: 36px;
     font-size: 24px;
 }
 
