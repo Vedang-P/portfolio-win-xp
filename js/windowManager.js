@@ -1829,12 +1829,44 @@ X: x.com/vedangstwt`
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const statusEl = win.querySelector('[data-paint-status]');
+        const primaryChip = win.querySelector('[data-paint-primary-color]');
+        const secondaryChip = win.querySelector('[data-paint-secondary-color]');
+        const sizeSelect = win.querySelector('[data-paint-size]');
+        const toolButtons = Array.from(win.querySelectorAll('[data-paint-tool]'));
+        const swatches = Array.from(win.querySelectorAll('.paint-swatch'));
+        const actionButtons = Array.from(win.querySelectorAll('[data-paint-action]'));
+        if (!ctx) return;
 
         let drawing = false;
-        let brushColor = '#000000';
-        let brushSize = 4;
+        let activeTool = 'brush';
+        let brushSize = sizeSelect ? parseInt(sizeSelect.value, 10) : 4;
+        let primaryColor = '#000000';
+        let secondaryColor = '#ffffff';
+        let strokeColor = primaryColor;
+
+        const setStatus = (message) => {
+            if (statusEl) statusEl.textContent = message;
+        };
+
+        const resetCanvas = (statusMessage = 'Canvas cleared') => {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            setStatus(statusMessage);
+        };
+
+        const setActiveTool = (tool) => {
+            activeTool = tool || 'brush';
+            toolButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.paintTool === activeTool);
+            });
+            setStatus(`Tool: ${activeTool}`);
+        };
+
+        const updateColorChips = () => {
+            if (primaryChip) primaryChip.style.background = primaryColor;
+            if (secondaryChip) secondaryChip.style.background = secondaryColor;
+        };
 
         const getCanvasPoint = (event) => {
             const rect = canvas.getBoundingClientRect();
@@ -1847,22 +1879,45 @@ X: x.com/vedangstwt`
         };
 
         const startDraw = (event) => {
+            if (event.button !== 0 && event.button !== 2) return;
+            event.preventDefault();
             drawing = true;
+            const useSecondary = event.button === 2;
+            if (activeTool === 'eraser') {
+                strokeColor = '#ffffff';
+            } else {
+                strokeColor = useSecondary ? secondaryColor : primaryColor;
+            }
             const point = getCanvasPoint(event);
             ctx.beginPath();
             ctx.moveTo(point.x, point.y);
             canvas.setPointerCapture(event.pointerId);
+            setStatus(`Drawing (${Math.round(point.x)}, ${Math.round(point.y)})`);
         };
 
         const draw = (event) => {
-            if (!drawing) return;
             const point = getCanvasPoint(event);
+            if (!drawing) {
+                setStatus(`${activeTool} @ ${Math.round(point.x)}, ${Math.round(point.y)}`);
+                return;
+            }
+
+            const widthMap = {
+                pencil: Math.max(1, Math.floor(brushSize / 2)),
+                brush: brushSize,
+                eraser: Math.max(4, brushSize * 2),
+                line: brushSize,
+                rect: brushSize,
+                ellipse: brushSize
+            };
+
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            ctx.strokeStyle = brushColor;
-            ctx.lineWidth = brushSize;
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = widthMap[activeTool] || brushSize;
             ctx.lineTo(point.x, point.y);
             ctx.stroke();
+            setStatus(`Drawing (${Math.round(point.x)}, ${Math.round(point.y)})`);
         };
 
         const stopDraw = (event) => {
@@ -1872,47 +1927,68 @@ X: x.com/vedangstwt`
             if (event.pointerId !== undefined && canvas.hasPointerCapture(event.pointerId)) {
                 canvas.releasePointerCapture(event.pointerId);
             }
+            setStatus(`Tool: ${activeTool}`);
         };
 
+        canvas.addEventListener('contextmenu', event => event.preventDefault());
         canvas.addEventListener('pointerdown', startDraw);
         canvas.addEventListener('pointermove', draw);
         canvas.addEventListener('pointerup', stopDraw);
         canvas.addEventListener('pointercancel', stopDraw);
         canvas.addEventListener('pointerleave', stopDraw);
 
-        win.querySelectorAll('.paint-swatch').forEach(btn => {
+        swatches.forEach(btn => {
             btn.addEventListener('click', () => {
-                win.querySelectorAll('.paint-swatch').forEach(node => node.classList.remove('active'));
+                swatches.forEach(node => node.classList.remove('active'));
                 btn.classList.add('active');
-                brushColor = btn.dataset.color;
+                primaryColor = btn.dataset.color || primaryColor;
+                updateColorChips();
+                setStatus(`Primary color: ${primaryColor}`);
+            });
+
+            btn.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+                secondaryColor = btn.dataset.color || secondaryColor;
+                updateColorChips();
+                setStatus(`Secondary color: ${secondaryColor}`);
             });
         });
 
-        const sizeSelect = win.querySelector('[data-paint-size]');
         if (sizeSelect) {
             sizeSelect.addEventListener('change', () => {
                 brushSize = parseInt(sizeSelect.value, 10);
+                setStatus(`Brush size: ${brushSize}px`);
             });
         }
 
-        win.querySelectorAll('[data-paint-action]').forEach(btn => {
+        toolButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                setActiveTool(btn.dataset.paintTool);
+            });
+        });
+
+        actionButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.paintAction;
 
-                if (action === 'eraser') {
-                    brushColor = '#ffffff';
-                    win.querySelectorAll('.paint-swatch').forEach(node => node.classList.remove('active'));
+                if (action === 'new') {
+                    resetCanvas('New canvas');
                 } else if (action === 'clear') {
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    resetCanvas('Canvas cleared');
                 } else if (action === 'save') {
                     const link = document.createElement('a');
                     link.download = 'paint-drawing.png';
                     link.href = canvas.toDataURL('image/png');
                     link.click();
+                    setStatus('Saved: paint-drawing.png');
                 }
+                SoundManager.play('click');
             });
         });
+
+        resetCanvas('Ready');
+        updateColorChips();
+        setActiveTool('brush');
     },
 
     initSpotify(win) {

@@ -519,30 +519,91 @@ Open the Contact app for direct links.`
     },
 
     generatePaintHTML() {
-        const swatches = ['#000000', '#ffffff', '#0b4fa2', '#ff0000', '#00a300', '#ffff00', '#7a2f90', '#ff8c00', '#00a8c6', '#84563b'];
+        const swatches = [
+            '#000000', '#7f7f7f', '#800000', '#808000', '#008000', '#008080', '#000080', '#800080',
+            '#808040', '#004040', '#0080ff', '#004080', '#ff0000', '#ff8040', '#ffff00', '#80ff00',
+            '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffc0c0', '#ffe0c0', '#ffffc0', '#ffffff'
+        ];
         const swatchHtml = swatches.map((color, idx) => `
-            <button class="paint-swatch ${idx === 0 ? 'active' : ''}" data-color="${color}" style="background:${color};" title="${color}"></button>
+            <button
+                type="button"
+                class="paint-swatch ${idx === 0 ? 'active' : ''}"
+                data-color="${color}"
+                style="background:${color};"
+                title="${color}"
+                aria-label="Color ${color}"
+            ></button>
         `).join('');
 
         return `
             <div class="paint-app">
+                <div class="paint-menubar">
+                    <button type="button" class="paint-menu-item">File</button>
+                    <button type="button" class="paint-menu-item">Edit</button>
+                    <button type="button" class="paint-menu-item">View</button>
+                    <button type="button" class="paint-menu-item">Image</button>
+                    <button type="button" class="paint-menu-item">Colors</button>
+                    <button type="button" class="paint-menu-item">Help</button>
+                </div>
+
                 <div class="paint-toolbar">
-                    <label>Brush:
-                        <select class="paint-size" data-paint-size>
-                            <option value="2">2 px</option>
-                            <option value="4" selected>4 px</option>
-                            <option value="8">8 px</option>
-                            <option value="12">12 px</option>
-                        </select>
-                    </label>
-                    <button class="paint-btn" data-paint-action="eraser">Eraser</button>
-                    <button class="paint-btn" data-paint-action="clear">Clear</button>
-                    <button class="paint-btn" data-paint-action="save">Save PNG</button>
+                    <div class="paint-toolbar-group">
+                        <label class="paint-field">Size:
+                            <select class="paint-size" data-paint-size>
+                                <option value="1">1 px</option>
+                                <option value="2">2 px</option>
+                                <option value="4" selected>4 px</option>
+                                <option value="8">8 px</option>
+                                <option value="12">12 px</option>
+                                <option value="16">16 px</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="paint-toolbar-group">
+                        <button type="button" class="paint-btn" data-paint-action="new">New</button>
+                        <button type="button" class="paint-btn" data-paint-action="clear">Clear</button>
+                        <button type="button" class="paint-btn" data-paint-action="save">Save PNG</button>
+                    </div>
                 </div>
-                <div class="paint-swatches">${swatchHtml}</div>
-                <div class="paint-canvas-wrap">
-                    <canvas class="paint-canvas" width="1300" height="900"></canvas>
+
+                <div class="paint-workspace">
+                    <aside class="paint-toolbox">
+                        <button type="button" class="paint-tool-btn active" data-paint-tool="brush" title="Brush">
+                            <span class="paint-tool-glyph">Br</span>
+                        </button>
+                        <button type="button" class="paint-tool-btn" data-paint-tool="pencil" title="Pencil">
+                            <span class="paint-tool-glyph">Pe</span>
+                        </button>
+                        <button type="button" class="paint-tool-btn" data-paint-tool="eraser" title="Eraser">
+                            <span class="paint-tool-glyph">Er</span>
+                        </button>
+                        <button type="button" class="paint-tool-btn" data-paint-tool="line" title="Line">
+                            <span class="paint-tool-glyph">Li</span>
+                        </button>
+                        <button type="button" class="paint-tool-btn" data-paint-tool="rect" title="Rectangle">
+                            <span class="paint-tool-glyph">Rc</span>
+                        </button>
+                        <button type="button" class="paint-tool-btn" data-paint-tool="ellipse" title="Ellipse">
+                            <span class="paint-tool-glyph">El</span>
+                        </button>
+                    </aside>
+
+                    <div class="paint-canvas-wrap">
+                        <div class="paint-canvas-inner">
+                            <canvas class="paint-canvas" width="1300" height="900"></canvas>
+                        </div>
+                    </div>
                 </div>
+
+                <div class="paint-statusbar">
+                    <div class="paint-status" data-paint-status>Ready</div>
+                    <div class="paint-current-colors">
+                        <span class="paint-color-chip paint-color-primary" data-paint-primary-color style="background:#000000;"></span>
+                        <span class="paint-color-chip paint-color-secondary" data-paint-secondary-color style="background:#ffffff;"></span>
+                    </div>
+                    <div class="paint-swatches">${swatchHtml}</div>
+                </div>
+                <div class="paint-hint">Left click to draw with primary color, right click for secondary color.</div>
             </div>
         `;
     },

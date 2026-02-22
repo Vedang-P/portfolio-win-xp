@@ -1,3 +1,5 @@
+![Windows XP Portfolio Screenshot](assets/readme-hero.png)
+
 A front-end portfolio built as a Windows XP-style desktop experience.
 
 This project recreates the feel of XP in the browser: boot/login flow, desktop icons, draggable windows, taskbar/start menu behavior, classic sounds, and retro-styled apps. It is a static site (no backend).
