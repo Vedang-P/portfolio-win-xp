@@ -2136,6 +2136,13 @@ X: x.com/vedangstwt`
         let progressTimer = 0;
         let seeking = false;
         let destroyed = false;
+        const MAX_BLOCK_RETRIES = 8;
+        let activeSource = {
+            type: 'quick',
+            query: tracks[0]?.query || '',
+            retries: 0,
+            attemptedFallback: false
+        };
 
         const setStatus = (text) => {
             statusEl.textContent = text;
@@ -2268,6 +2275,12 @@ X: x.com/vedangstwt`
             setTrackSelection(currentIndex);
 
             const track = tracks[currentIndex];
+            activeSource = {
+                type: 'quick',
+                query: track.query || `${track.title} ${track.artist}`,
+                retries: 0,
+                attemptedFallback: false
+            };
             setNowPlaying(track.title, track.artist);
             setStatus(`Loading: ${track.title} - ${track.artist}`);
 
@@ -2358,6 +2371,12 @@ X: x.com/vedangstwt`
             setNowPlaying(query, 'Search Results');
             setStatus(`Searching: ${query}...`);
             addRecentSearch(query);
+            activeSource = {
+                type: 'search',
+                query,
+                retries: 0,
+                attemptedFallback: true
+            };
 
             try {
                 player.loadPlaylist({ listType: 'search', list: query, index: 0 });
@@ -2534,6 +2553,7 @@ X: x.com/vedangstwt`
 
                             const ytState = YT.PlayerState;
                             if (event.data === ytState.PLAYING) {
+                                activeSource.retries = 0;
                                 syncVideoMeta();
                                 setStatus(`Playing: ${nowTitleEl.textContent}`);
                                 return;
@@ -2558,8 +2578,52 @@ X: x.com/vedangstwt`
                                 playNext();
                             }
                         },
-                        onError: () => {
-                            setStatus('Playback blocked for this video. Try another track.');
+                        onError: (event) => {
+                            const errorCode = Number(event?.data);
+
+                            if (
+                                activeSource.type === 'quick' &&
+                                !activeSource.attemptedFallback &&
+                                activeSource.query
+                            ) {
+                                activeSource.type = 'quick-fallback';
+                                activeSource.attemptedFallback = true;
+                                activeSource.retries = 0;
+                                mode = 'search';
+                                setTrackSelection(-1);
+                                setStatus('Primary upload blocked. Trying alternate results...');
+                                try {
+                                    player.loadPlaylist({ listType: 'search', list: activeSource.query, index: 0 });
+                                    return;
+                                } catch (error) {
+                                    // fall through to generic handling
+                                }
+                            }
+
+                            if (
+                                (activeSource.type === 'search' || activeSource.type === 'quick-fallback') &&
+                                activeSource.retries < MAX_BLOCK_RETRIES
+                            ) {
+                                activeSource.retries += 1;
+                                const retryNum = activeSource.retries;
+                                setStatus(`Track blocked (${errorCode || '?'}) - trying result ${retryNum}/${MAX_BLOCK_RETRIES}...`);
+                                window.setTimeout(() => {
+                                    if (destroyed || !player) return;
+                                    try {
+                                        player.nextVideo();
+                                    } catch (error) {
+                                        setStatus('Could not move to next result.');
+                                    }
+                                }, 250);
+                                return;
+                            }
+
+                            if (activeSource.type === 'quick' || activeSource.type === 'quick-fallback') {
+                                setStatus('Track unavailable in embeds. Loading next song...');
+                                playNext();
+                            } else {
+                                setStatus('Could not find a playable embed for this search. Try another query.');
+                            }
                             SoundManager.play('error');
                         }
                     }

@@ -158,37 +158,31 @@ Open the Contact app for direct links.`
                 {
                     title: 'Blinding Lights',
                     artist: 'The Weeknd',
-                    videoId: '4NRXx6U8ABQ',
                     query: 'Blinding Lights The Weeknd'
                 },
                 {
                     title: 'As It Was',
                     artist: 'Harry Styles',
-                    videoId: 'H5v3kku4y6Q',
                     query: 'As It Was Harry Styles'
                 },
                 {
                     title: 'Levitating',
                     artist: 'Dua Lipa',
-                    videoId: 'TUVcZfQe-Kw',
                     query: 'Levitating Dua Lipa'
                 },
                 {
                     title: 'Shape of You',
                     artist: 'Ed Sheeran',
-                    videoId: 'JGwWNGJdvx8',
                     query: 'Shape of You Ed Sheeran'
                 },
                 {
                     title: 'Bad Guy',
                     artist: 'Billie Eilish',
-                    videoId: 'DyDfgMOUjCI',
                     query: 'Bad Guy Billie Eilish'
                 },
                 {
                     title: 'Starboy',
                     artist: 'The Weeknd',
-                    videoId: '34Na4j8AVgA',
                     query: 'Starboy The Weeknd'
                 }
             ]
@@ -437,18 +431,22 @@ Open the Contact app for direct links.`
     generateControlPanelHTML() {
         const theme = Personalization.getTheme();
         const wallpaper = Personalization.getWallpaper();
-        const wallpaperCards = Personalization.getWallpaperOptions().map(option => `
-            <button
-                type="button"
-                class="control-wallpaper-card ${wallpaper === option.value ? 'active' : ''}"
-                data-wallpaper-key="${option.key}"
-                title="${this.escapeHTML(option.label)}"
-                style="--wallpaper-thumb:url('${this.escapeHTML(option.value)}')"
-            >
-                <span class="control-wallpaper-preview" aria-hidden="true"></span>
-                <span class="control-wallpaper-label">${this.escapeHTML(option.label)}</span>
-            </button>
-        `).join('');
+        const wallpaperCards = Personalization.getWallpaperOptions().map(option => {
+            const safeLabel = this.escapeHTML(option.label);
+            const safeWallpaperUrl = this.escapeHTML(option.value);
+
+            return `
+                <button
+                    type="button"
+                    class="control-wallpaper-card ${wallpaper === option.value ? 'active' : ''}"
+                    data-wallpaper-key="${option.key}"
+                    title="${safeLabel}"
+                >
+                    <span class="control-wallpaper-preview" style="background-image:url('${safeWallpaperUrl}')" aria-hidden="true"></span>
+                    <span class="control-wallpaper-label">${safeLabel}</span>
+                </button>
+            `;
+        }).join('');
 
         return `
             <div class="control-panel control-shell" data-control-root>
