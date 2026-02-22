@@ -2141,7 +2141,8 @@ X: x.com/vedangstwt`
         let activeSource = {
             type: 'quick',
             query: tracks[0]?.query || '',
-            retries: 0
+            retries: 0,
+            searchFallbackAttempted: false
         };
 
         const setStatus = (text) => {
@@ -2278,7 +2279,8 @@ X: x.com/vedangstwt`
             activeSource = {
                 type: 'quick',
                 query: track.query || `${track.title} ${track.artist}`,
-                retries: 0
+                retries: 0,
+                searchFallbackAttempted: false
             };
             setNowPlaying(track.title, track.artist);
             setStatus(`Loading: ${track.title} - ${track.artist}`);
@@ -2373,7 +2375,8 @@ X: x.com/vedangstwt`
             activeSource = {
                 type: 'search',
                 query,
-                retries: 0
+                retries: 0,
+                searchFallbackAttempted: true
             };
 
             try {
@@ -2607,6 +2610,22 @@ X: x.com/vedangstwt`
                                         playNext();
                                     }, 250);
                                     return;
+                                }
+
+                                if (!activeSource.searchFallbackAttempted && activeSource.query) {
+                                    quickBlockStreak = 0;
+                                    activeSource.type = 'search';
+                                    activeSource.retries = 0;
+                                    activeSource.searchFallbackAttempted = true;
+                                    mode = 'search';
+                                    setTrackSelection(-1);
+                                    setStatus('Quick picks blocked. Trying alternate uploads...');
+                                    try {
+                                        player.loadPlaylist({ listType: 'search', list: activeSource.query, index: 0 });
+                                        return;
+                                    } catch (error) {
+                                        // fall through to final status
+                                    }
                                 }
 
                                 quickBlockStreak = 0;
