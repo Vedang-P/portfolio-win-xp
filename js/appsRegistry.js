@@ -107,8 +107,8 @@ Open the Contact app for direct links.`
             id: 'control',
             name: 'Control Panel',
             icon: 'assets/icons/Windows XP Icons/0015 - Control Panel.ico',
-            width: 620,
-            height: 460
+            width: 820,
+            height: 560
         },
         paint: {
             id: 'paint',
@@ -410,42 +410,108 @@ Open the Contact app for direct links.`
     generateControlPanelHTML() {
         const theme = Personalization.getTheme();
         const wallpaper = Personalization.getWallpaper();
-        const wallpaperChips = Personalization.getWallpaperOptions().map(option => `
+        const wallpaperCards = Personalization.getWallpaperOptions().map(option => `
             <button
-                class="control-chip ${wallpaper === option.value ? 'active' : ''}"
+                type="button"
+                class="control-wallpaper-card ${wallpaper === option.value ? 'active' : ''}"
                 data-wallpaper-key="${option.key}"
-            >${option.label}</button>
+                title="${this.escapeHTML(option.label)}"
+                style="--wallpaper-thumb:url('${this.escapeHTML(option.value)}')"
+            >
+                <span class="control-wallpaper-preview" aria-hidden="true"></span>
+                <span class="control-wallpaper-label">${this.escapeHTML(option.label)}</span>
+            </button>
         `).join('');
 
         return `
-            <div class="control-panel">
-                <div class="control-group">
-                    <div class="control-title">Appearance</div>
-                    <div class="control-options">
-                        <button class="control-chip ${theme === 'luna-blue' ? 'active' : ''}" data-theme="luna-blue">Luna Blue</button>
+            <div class="control-panel control-shell" data-control-root>
+                <div class="control-header">
+                    <img class="control-header-icon" src="${this.apps.control.icon}" alt="">
+                    <div class="control-header-copy">
+                        <div class="control-header-title">Control Panel</div>
+                        <div class="control-header-subtitle">Pick a category to adjust your XP desktop experience.</div>
                     </div>
                 </div>
 
-                <div class="control-group">
-                    <div class="control-title">Wallpaper</div>
-                    <div class="control-options">
-                        ${wallpaperChips}
-                    </div>
-                </div>
+                <div class="control-layout">
+                    <aside class="control-sidebar">
+                        <section class="control-side-group">
+                            <div class="control-side-title">Control Panel Home</div>
+                            <button type="button" class="control-side-link" data-open-app="mycomputer">Open My Computer</button>
+                            <button type="button" class="control-side-link" data-open-app="mydocs">Open My Documents</button>
+                            <button type="button" class="control-side-link" data-open-app="contact">Open Contact</button>
+                        </section>
 
-                <div class="control-group">
-                    <div class="control-title">Audio</div>
-                    <div class="control-options">
-                        <button class="control-chip" data-sound-toggle>${SoundManager.isEnabled() ? 'Disable Sounds' : 'Enable Sounds'}</button>
-                    </div>
-                </div>
+                        <section class="control-side-group">
+                            <div class="control-side-title">Desktop Tasks</div>
+                            <button type="button" class="control-side-link" data-control-action="show-desktop">Show Desktop</button>
+                            <button type="button" class="control-side-link" data-control-action="reset-icons">Reset Desktop Icons</button>
+                            <button type="button" class="control-side-link" data-control-action="play-test-sound">Play Sound Test</button>
+                        </section>
 
-                <div class="control-group">
-                    <div class="control-title">Shell Shortcuts</div>
-                    <div class="control-options text-list">
-                        <span>Ctrl + Esc: Start menu</span>
-                        <span>Alt + F4: Close active window</span>
-                        <span>Ctrl + D: Show desktop</span>
+                        <section class="control-side-group">
+                            <div class="control-side-title">Status</div>
+                            <div class="control-status-line">
+                                Sounds: <strong data-sound-status>${SoundManager.isEnabled() ? 'On' : 'Muted'}</strong>
+                            </div>
+                            <div class="control-status-line">
+                                Volume: <strong data-sound-volume-value>${Math.round(SoundManager.getMasterVolume() * 100)}%</strong>
+                            </div>
+                            <div class="control-status-line">
+                                Theme: <strong>Luna Blue</strong>
+                            </div>
+                        </section>
+                    </aside>
+
+                    <section class="control-main">
+                        <article class="control-card">
+                            <div class="control-card-title">Appearance and Themes</div>
+                            <div class="control-card-subtitle">Visual style</div>
+                            <div class="control-row">
+                                <button type="button" class="control-chip ${theme === 'luna-blue' ? 'active' : ''}" data-theme="luna-blue">
+                                    Luna Blue
+                                </button>
+                            </div>
+                        </article>
+
+                        <article class="control-card">
+                            <div class="control-card-title">Desktop Background</div>
+                            <div class="control-card-subtitle">Choose wallpaper</div>
+                            <div class="control-wallpaper-grid">
+                                ${wallpaperCards}
+                            </div>
+                        </article>
+
+                        <article class="control-card">
+                            <div class="control-card-title">Sounds and Audio Devices</div>
+                            <div class="control-card-subtitle">System sounds</div>
+                            <div class="control-row">
+                                <button type="button" class="control-chip" data-sound-toggle>
+                                    ${SoundManager.isEnabled() ? 'Disable Sounds' : 'Enable Sounds'}
+                                </button>
+                            </div>
+                            <label class="control-volume">
+                                <span>Master Volume</span>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value="${Math.round(SoundManager.getMasterVolume() * 100)}"
+                                    data-sound-volume
+                                >
+                            </label>
+                        </article>
+
+                        <article class="control-card">
+                            <div class="control-card-title">Portfolio Shortcuts</div>
+                            <div class="control-card-subtitle">Quick launch</div>
+                            <div class="control-shortcuts">
+                                <button type="button" class="control-shortcut-btn" data-open-app="paint">Paint</button>
+                                <button type="button" class="control-shortcut-btn" data-open-app="spotify">Spotify</button>
+                                <button type="button" class="control-shortcut-btn" data-open-app="recycle">Recycle Bin</button>
+                                <button type="button" class="control-shortcut-btn" data-open-app="cmd">Command Prompt</button>
+                            </div>
+                        </article>
                     </div>
                 </div>
             </div>

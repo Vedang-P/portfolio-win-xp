@@ -1709,8 +1709,10 @@ X: x.com/vedangstwt`
     },
 
     initControlPanel(win) {
-        const panel = win.querySelector('.control-panel');
+        const panel = win.querySelector('[data-control-root]');
         if (!panel) return;
+        if (panel.dataset.bound === '1') return;
+        panel.dataset.bound = '1';
 
         const sync = () => {
             panel.querySelectorAll('[data-theme]').forEach(btn => {
@@ -1727,34 +1729,97 @@ X: x.com/vedangstwt`
             if (soundBtn) {
                 soundBtn.textContent = SoundManager.isEnabled() ? 'Disable Sounds' : 'Enable Sounds';
             }
+
+            const soundStatus = panel.querySelector('[data-sound-status]');
+            if (soundStatus) {
+                soundStatus.textContent = SoundManager.isEnabled() ? 'On' : 'Muted';
+            }
+
+            const soundVolumeValue = panel.querySelector('[data-sound-volume-value]');
+            const volumePercent = Math.round(SoundManager.getMasterVolume() * 100);
+            if (soundVolumeValue) {
+                soundVolumeValue.textContent = `${volumePercent}%`;
+            }
+
+            const volumeSlider = panel.querySelector('[data-sound-volume]');
+            if (volumeSlider) {
+                const currentValue = String(volumePercent);
+                if (volumeSlider.value !== currentValue) {
+                    volumeSlider.value = currentValue;
+                }
+            }
         };
 
-        panel.querySelectorAll('[data-theme]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                Personalization.applyTheme(btn.dataset.theme);
+        panel.addEventListener('click', (event) => {
+            const themeButton = event.target.closest('[data-theme]');
+            if (themeButton) {
+                Personalization.applyTheme(themeButton.dataset.theme);
                 SoundManager.play('click');
                 sync();
-            });
-        });
+                return;
+            }
 
-        panel.querySelectorAll('[data-wallpaper-key]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const wallpaper = Personalization.getWallpaperByKey(btn.dataset.wallpaperKey);
+            const wallpaperButton = event.target.closest('[data-wallpaper-key]');
+            if (wallpaperButton) {
+                const wallpaper = Personalization.getWallpaperByKey(wallpaperButton.dataset.wallpaperKey);
                 if (wallpaper) {
                     Personalization.applyWallpaper(wallpaper);
                     SoundManager.play('click');
                     sync();
                 }
-            });
+                return;
+            }
+
+            const soundButton = event.target.closest('[data-sound-toggle]');
+            if (soundButton) {
+                SoundManager.toggle();
+                sync();
+                return;
+            }
+
+            const appButton = event.target.closest('[data-open-app]');
+            if (appButton) {
+                const appId = appButton.dataset.openApp || '';
+                if (appId) {
+                    SoundManager.play('click');
+                    this.open(appId);
+                }
+                return;
+            }
+
+            const taskButton = event.target.closest('[data-control-action]');
+            if (!taskButton) return;
+
+            const action = taskButton.dataset.controlAction || '';
+            if (action === 'show-desktop') {
+                SoundManager.play('click');
+                this.minimizeAll();
+            } else if (action === 'reset-icons') {
+                SoundManager.play('click');
+                this.resetIconsToDefaultPositions();
+            } else if (action === 'play-test-sound') {
+                SoundManager.play('notify');
+            }
         });
 
-        const soundBtn = panel.querySelector('[data-sound-toggle]');
-        if (soundBtn) {
-            soundBtn.addEventListener('click', () => {
-                SoundManager.toggle();
+        const volumeSlider = panel.querySelector('[data-sound-volume]');
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', () => {
+                const volume = Number.parseInt(volumeSlider.value, 10) / 100;
+                SoundManager.setMasterVolume(volume);
                 sync();
             });
         }
+
+        panel.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                const btn = event.target.closest('button');
+                if (btn) {
+                    event.preventDefault();
+                    btn.click();
+                }
+            }
+        });
 
         sync();
     },
