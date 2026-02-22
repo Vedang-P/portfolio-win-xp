@@ -16,7 +16,7 @@ This project recreates the feel of XP in the browser: boot/login flow, desktop i
   - Paint (drawing canvas + save)
   - My Computer (Explorer-style layout)
   - Internet Explorer (embedded web view)
-  - Spotify (embedded player)
+  - Spotify (modern in-window player with search, full-track playback, seek, queue controls, and volume)
   - Control Panel (theme/wallpaper/sound toggles)
   - Command Prompt (mock shell commands)
 - `Resume` shortcut redirects directly to: `https://x.com/vedangstwt`

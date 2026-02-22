@@ -156,24 +156,40 @@ Open the Contact app for direct links.`
             openUrl: 'https://open.spotify.com',
             tracks: [
                 {
-                    title: 'Drive at Dusk',
-                    artist: 'SoundHelix',
-                    src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+                    title: 'Blinding Lights',
+                    artist: 'The Weeknd',
+                    videoId: '4NRXx6U8ABQ',
+                    query: 'Blinding Lights The Weeknd'
                 },
                 {
-                    title: 'Night Run',
-                    artist: 'SoundHelix',
-                    src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'
+                    title: 'As It Was',
+                    artist: 'Harry Styles',
+                    videoId: 'H5v3kku4y6Q',
+                    query: 'As It Was Harry Styles'
                 },
                 {
-                    title: 'Luna Blue',
-                    artist: 'SoundHelix',
-                    src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
+                    title: 'Levitating',
+                    artist: 'Dua Lipa',
+                    videoId: 'TUVcZfQe-Kw',
+                    query: 'Levitating Dua Lipa'
                 },
                 {
-                    title: 'Desktop Dreams',
-                    artist: 'SoundHelix',
-                    src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'
+                    title: 'Shape of You',
+                    artist: 'Ed Sheeran',
+                    videoId: 'JGwWNGJdvx8',
+                    query: 'Shape of You Ed Sheeran'
+                },
+                {
+                    title: 'Bad Guy',
+                    artist: 'Billie Eilish',
+                    videoId: 'DyDfgMOUjCI',
+                    query: 'Bad Guy Billie Eilish'
+                },
+                {
+                    title: 'Starboy',
+                    artist: 'The Weeknd',
+                    videoId: '34Na4j8AVgA',
+                    query: 'Starboy The Weeknd'
                 }
             ]
         },
@@ -927,13 +943,40 @@ Open the Contact app for direct links.`
 
                 <div class="spotify-layout">
                     <aside class="spotify-sidebar">
-                        <div class="spotify-sidebar-title">Top Songs</div>
-                        <div class="spotify-track-list" data-spotify-track-list>
-                            ${trackItems}
+                        <div class="spotify-sidebar-section">
+                            <div class="spotify-sidebar-title">Search</div>
+                            <form class="spotify-search-form" data-spotify-search-form>
+                                <input
+                                    type="search"
+                                    class="spotify-search-input"
+                                    data-spotify-search-input
+                                    placeholder="Search song or artist"
+                                    autocomplete="off"
+                                >
+                                <button type="submit" class="spotify-search-btn">Play</button>
+                            </form>
+                        </div>
+
+                        <div class="spotify-sidebar-section">
+                            <div class="spotify-sidebar-title">Quick Picks</div>
+                            <div class="spotify-track-list" data-spotify-track-list>
+                                ${trackItems}
+                            </div>
+                        </div>
+
+                        <div class="spotify-sidebar-section">
+                            <div class="spotify-sidebar-title">Recent Searches</div>
+                            <div class="spotify-queue-list" data-spotify-recent-list>
+                                <div class="spotify-empty-text">No recent searches.</div>
+                            </div>
                         </div>
                     </aside>
 
                     <section class="spotify-main">
+                        <div class="spotify-player-shell">
+                            <div class="spotify-player" data-spotify-player></div>
+                        </div>
+
                         <div class="spotify-now">
                             <img class="spotify-now-art" src="${this.apps.spotify.icon}" alt="">
                             <div class="spotify-now-meta">
@@ -944,30 +987,26 @@ Open the Contact app for direct links.`
 
                         <div class="spotify-progress-row">
                             <span data-spotify-current>0:00</span>
-                            <input type="range" min="0" max="100" value="0" data-spotify-progress>
+                            <input type="range" min="0" max="100" value="0" step="0.1" data-spotify-progress>
                             <span data-spotify-duration>0:00</span>
                         </div>
 
                         <div class="spotify-controls">
                             <button type="button" data-spotify-action="shuffle">Shuffle Off</button>
-                            <button type="button" data-spotify-action="prev">&#9664;&#9664;</button>
-                            <button type="button" data-spotify-action="play">Play</button>
-                            <button type="button" data-spotify-action="next">&#9654;&#9654;</button>
+                            <button type="button" data-spotify-action="prev">Prev</button>
+                            <button type="button" class="spotify-primary-control" data-spotify-action="play">Play</button>
+                            <button type="button" data-spotify-action="next">Next</button>
                             <button type="button" data-spotify-action="repeat">Repeat Off</button>
                         </div>
 
-                        <div class="spotify-volume-grid">
-                            <label>
-                                <span>Spotify Volume</span>
-                                <input type="range" min="0" max="100" value="80" data-spotify-volume>
-                            </label>
+                        <div class="spotify-volume-row">
+                            <span>Volume</span>
+                            <input type="range" min="0" max="100" value="85" data-spotify-volume>
                         </div>
 
-                        <audio data-spotify-audio preload="metadata"></audio>
+                        <div class="spotify-status" data-spotify-status>Loading player...</div>
                     </section>
                 </div>
-
-                <div class="spotify-status" data-spotify-status>Ready</div>
             </div>
         `;
     },

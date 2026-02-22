@@ -35,6 +35,7 @@ const WindowManager = {
     },
     recycledDesktopItems: [],
     deletedDesktopApps: new Set(),
+    youtubeApiPromise: null,
 
     init() {
         DragController.init();
@@ -1991,85 +1992,172 @@ X: x.com/vedangstwt`
         setActiveTool('brush');
     },
 
+    getYouTubeAPI() {
+        if (window.YT && window.YT.Player) {
+            return Promise.resolve(window.YT);
+        }
+
+        if (this.youtubeApiPromise) {
+            return this.youtubeApiPromise;
+        }
+
+        this.youtubeApiPromise = new Promise((resolve, reject) => {
+            let settled = false;
+            let timeoutId = 0;
+            let pollId = 0;
+
+            const finishResolve = () => {
+                if (settled) return;
+                settled = true;
+                window.clearTimeout(timeoutId);
+                window.clearInterval(pollId);
+                resolve(window.YT);
+            };
+
+            const finishReject = (error) => {
+                if (settled) return;
+                settled = true;
+                window.clearTimeout(timeoutId);
+                window.clearInterval(pollId);
+                reject(error);
+            };
+
+            const previousReady = window.onYouTubeIframeAPIReady;
+            window.onYouTubeIframeAPIReady = () => {
+                if (typeof previousReady === 'function') {
+                    previousReady();
+                }
+                if (window.YT && window.YT.Player) {
+                    finishResolve();
+                }
+            };
+
+            let script = document.querySelector('script[data-youtube-iframe-api="1"]');
+            if (!script) {
+                script = document.createElement('script');
+                script.src = 'https://www.youtube.com/iframe_api';
+                script.async = true;
+                script.dataset.youtubeIframeApi = '1';
+                document.head.appendChild(script);
+            }
+
+            script.addEventListener('error', () => {
+                finishReject(new Error('Failed to load YouTube player API.'));
+            }, { once: true });
+
+            pollId = window.setInterval(() => {
+                if (window.YT && window.YT.Player) {
+                    finishResolve();
+                }
+            }, 120);
+
+            timeoutId = window.setTimeout(() => {
+                finishReject(new Error('Timed out while loading YouTube player API.'));
+            }, 12000);
+        }).catch((error) => {
+            this.youtubeApiPromise = null;
+            throw error;
+        });
+
+        return this.youtubeApiPromise;
+    },
+
     initSpotify(win) {
         const root = win.querySelector('[data-spotify-app]');
         if (!root) return;
 
         const app = AppsRegistry.getApp('spotify');
         if (!app || !Array.isArray(app.tracks) || !app.tracks.length) return;
-
-        const topSongsFeedUrl = 'https://itunes.apple.com/us/rss/topsongs/limit=100/json';
-        const spotifySearchBase = 'https://open.spotify.com/search/';
-        const escapeHtml = (value) => String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-
-        let tracks = app.tracks.map((track) => ({
-            title: track.title,
-            artist: track.artist,
-            src: track.src || '',
-            externalUrl: track.externalUrl || `${spotifySearchBase}${encodeURIComponent(`${track.title} ${track.artist}`)}`
-        }));
-        const audio = root.querySelector('[data-spotify-audio]');
+        const playerHost = root.querySelector('[data-spotify-player]');
+        const searchForm = root.querySelector('[data-spotify-search-form]');
+        const searchInput = root.querySelector('[data-spotify-search-input]');
+        const trackListEl = root.querySelector('[data-spotify-track-list]');
+        const recentListEl = root.querySelector('[data-spotify-recent-list]');
         const progress = root.querySelector('[data-spotify-progress]');
         const currentTimeEl = root.querySelector('[data-spotify-current]');
         const durationEl = root.querySelector('[data-spotify-duration]');
         const statusEl = root.querySelector('[data-spotify-status]');
         const nowTitleEl = root.querySelector('[data-spotify-now-title]');
         const nowArtistEl = root.querySelector('[data-spotify-now-artist]');
-        const trackListEl = root.querySelector('[data-spotify-track-list]');
-        const spotifyVolumeSlider = root.querySelector('[data-spotify-volume]');
+        const volumeSlider = root.querySelector('[data-spotify-volume]');
         const playBtn = root.querySelector('[data-spotify-action="play"]');
         const shuffleBtn = root.querySelector('[data-spotify-action="shuffle"]');
         const repeatBtn = root.querySelector('[data-spotify-action="repeat"]');
 
-        if (!audio || !progress || !currentTimeEl || !durationEl || !statusEl || !nowTitleEl || !nowArtistEl || !trackListEl || !playBtn) {
+        if (
+            !playerHost ||
+            !searchForm ||
+            !searchInput ||
+            !trackListEl ||
+            !recentListEl ||
+            !progress ||
+            !currentTimeEl ||
+            !durationEl ||
+            !statusEl ||
+            !nowTitleEl ||
+            !nowArtistEl ||
+            !volumeSlider ||
+            !playBtn
+        ) {
             return;
         }
 
-        let currentIndex = 0;
-        let shuffle = false;
-        let repeat = false;
-        let loadToken = 0;
-        const previewCache = new Map();
+        if (typeof win.__spotifyCleanup === 'function') {
+            win.__spotifyCleanup();
+        }
 
+        const escapeHtml = (value) => String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
         const formatTime = (seconds) => {
-            if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+            if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
             const total = Math.floor(seconds);
             const mins = Math.floor(total / 60);
             const secs = total % 60;
             return `${mins}:${String(secs).padStart(2, '0')}`;
         };
 
+        const tracks = app.tracks.map((track) => ({
+            title: track.title || 'Unknown Title',
+            artist: track.artist || 'Unknown Artist',
+            videoId: track.videoId || '',
+            query: track.query || `${track.title || ''} ${track.artist || ''}`.trim()
+        }));
+
+        let currentIndex = 0;
+        let shuffle = false;
+        let repeat = false;
+        let mode = 'quick';
+        let recentSearches = [];
+        let player = null;
+        let progressTimer = 0;
+        let seeking = false;
+        let destroyed = false;
+
         const setStatus = (text) => {
             statusEl.textContent = text;
         };
 
-        const renderTrackList = () => {
-            trackListEl.innerHTML = tracks.map((track, index) => `
-                <button
-                    type="button"
-                    class="spotify-track-btn ${index === currentIndex ? 'active' : ''}"
-                    data-spotify-track-index="${index}"
-                    title="${escapeHtml(`${track.title} - ${track.artist}`)}"
-                >
-                    <span class="spotify-track-title">${escapeHtml(track.title)}</span>
-                    <span class="spotify-track-artist">${escapeHtml(track.artist)}</span>
-                </button>
-            `).join('');
+        const setNowPlaying = (title, artist = '') => {
+            nowTitleEl.textContent = title || 'Not Playing';
+            nowArtistEl.textContent = artist || '';
         };
 
-        const syncTrackSelection = () => {
-            trackListEl.querySelectorAll('[data-spotify-track-index]').forEach((button, index) => {
-                button.classList.toggle('active', index === currentIndex);
-            });
+        const getPlayerState = () => {
+            if (!player || typeof player.getPlayerState !== 'function') return -1;
+            try {
+                return player.getPlayerState();
+            } catch (error) {
+                return -1;
+            }
         };
 
         const syncPlayButton = () => {
-            playBtn.textContent = audio.paused ? 'Play' : 'Pause';
+            const ytState = window.YT?.PlayerState;
+            playBtn.textContent = getPlayerState() === ytState?.PLAYING ? 'Pause' : 'Play';
         };
 
         const syncToggleButtons = () => {
@@ -2083,257 +2171,405 @@ X: x.com/vedangstwt`
             }
         };
 
-        const syncProgress = () => {
-            const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-            const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
-            progress.max = duration > 0 ? String(duration) : '100';
-            progress.value = String(Math.min(current, duration || 100));
-            currentTimeEl.textContent = formatTime(current);
-            durationEl.textContent = formatTime(duration);
+        const setTrackSelection = (index) => {
+            trackListEl.querySelectorAll('[data-spotify-track-index]').forEach((button) => {
+                const buttonIndex = Number.parseInt(button.dataset.spotifyTrackIndex, 10);
+                button.classList.toggle('active', Number.isFinite(buttonIndex) && buttonIndex === index);
+            });
         };
 
-        const setNowPlaying = (track) => {
-            nowTitleEl.textContent = track ? track.title : 'No track loaded';
-            nowArtistEl.textContent = track ? track.artist : '';
+        const renderTrackList = () => {
+            trackListEl.innerHTML = tracks.map((track, index) => `
+                <button
+                    type="button"
+                    class="spotify-track-btn ${index === currentIndex && mode === 'quick' ? 'active' : ''}"
+                    data-spotify-track-index="${index}"
+                    title="${escapeHtml(`${track.title} - ${track.artist}`)}"
+                >
+                    <span class="spotify-track-title">${escapeHtml(track.title)}</span>
+                    <span class="spotify-track-artist">${escapeHtml(track.artist)}</span>
+                </button>
+            `).join('');
         };
 
-        const lookupPreviewUrl = async (track) => {
-            if (!track) return '';
-            if (track.src) return track.src;
-
-            const cacheKey = `${track.title}::${track.artist}`;
-            if (previewCache.has(cacheKey)) {
-                const cached = previewCache.get(cacheKey) || '';
-                track.src = cached;
-                return cached;
+        const renderRecentSearches = () => {
+            if (!recentSearches.length) {
+                recentListEl.innerHTML = '<div class="spotify-empty-text">No recent searches.</div>';
+                return;
             }
+
+            recentListEl.innerHTML = recentSearches.map((query) => `
+                <button type="button" class="spotify-recent-btn" data-spotify-search-query="${escapeHtml(query)}">
+                    ${escapeHtml(query)}
+                </button>
+            `).join('');
+        };
+
+        const addRecentSearch = (query) => {
+            const clean = query.trim();
+            if (!clean) return;
+            recentSearches = [clean, ...recentSearches.filter((entry) => entry.toLowerCase() !== clean.toLowerCase())].slice(0, 8);
+            renderRecentSearches();
+        };
+
+        const syncVideoMeta = () => {
+            if (!player || mode !== 'search') return;
+
+            let data = null;
+            try {
+                data = player.getVideoData();
+            } catch (error) {
+                data = null;
+            }
+
+            const title = data?.title?.trim();
+            if (!title) return;
+            setNowPlaying(title, data?.author?.trim() || 'YouTube');
+        };
+
+        const syncProgress = () => {
+            if (!player || seeking) return;
+
+            let current = 0;
+            let duration = 0;
 
             try {
-                const term = encodeURIComponent(`${track.title} ${track.artist}`);
-                const response = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=1`);
-                if (!response.ok) throw new Error(`Preview lookup failed: ${response.status}`);
-                const payload = await response.json();
-                const preview = payload?.results?.[0]?.previewUrl || '';
-                previewCache.set(cacheKey, preview);
-                track.src = preview;
-                return preview;
+                current = Number(player.getCurrentTime()) || 0;
+                duration = Number(player.getDuration()) || 0;
             } catch (error) {
-                previewCache.set(cacheKey, '');
-                return '';
+                current = 0;
+                duration = 0;
+            }
+
+            const progressValue = duration > 0 ? (current / duration) * 100 : 0;
+            progress.value = String(Math.max(0, Math.min(100, progressValue)));
+            currentTimeEl.textContent = formatTime(current);
+            durationEl.textContent = formatTime(duration);
+            syncVideoMeta();
+        };
+
+        const stopProgressTimer = () => {
+            if (progressTimer) {
+                window.clearInterval(progressTimer);
+                progressTimer = 0;
             }
         };
 
-        const loadTrack = async (index, autoplay = false) => {
-            if (!tracks.length) {
-                setNowPlaying(null);
-                setStatus('No tracks available.');
-                return;
-            }
+        const startProgressTimer = () => {
+            stopProgressTimer();
+            progressTimer = window.setInterval(syncProgress, 250);
+        };
 
-            const token = ++loadToken;
+        const loadTrackAt = (index, autoplay = true) => {
+            if (!player || !tracks.length) return;
+
             currentIndex = (index + tracks.length) % tracks.length;
+            mode = 'quick';
+            setTrackSelection(currentIndex);
+
             const track = tracks[currentIndex];
-            setNowPlaying(track);
+            setNowPlaying(track.title, track.artist);
             setStatus(`Loading: ${track.title} - ${track.artist}`);
-            syncTrackSelection();
-            syncProgress();
 
-            let previewUrl = track.src || '';
-            if (!previewUrl) {
-                previewUrl = await lookupPreviewUrl(track);
-            }
-
-            if (token !== loadToken) return;
-
-            if (!previewUrl) {
-                audio.pause();
-                audio.removeAttribute('src');
-                audio.load();
-                syncPlayButton();
-                setStatus(`Preview unavailable for ${track.title}. Use Open in Browser.`);
-                return;
-            }
-
-            audio.src = previewUrl;
-            audio.load();
-            setStatus(`Loaded: ${track.title} - ${track.artist}`);
-
-            if (autoplay) {
-                const playPromise = audio.play();
-                if (playPromise && typeof playPromise.then === 'function') {
-                    playPromise
-                        .then(() => setStatus(`Playing: ${track.title}`))
-                        .catch(() => setStatus('Playback blocked until user interaction.'));
+            try {
+                if (track.videoId) {
+                    if (autoplay) {
+                        player.loadVideoById(track.videoId);
+                    } else {
+                        player.cueVideoById(track.videoId);
+                    }
+                } else {
+                    const payload = { listType: 'search', list: track.query, index: 0 };
+                    if (autoplay) {
+                        player.loadPlaylist(payload);
+                    } else {
+                        player.cuePlaylist(payload);
+                    }
                 }
+            } catch (error) {
+                setStatus(`Could not load ${track.title}.`);
+                SoundManager.play('error');
             }
         };
 
         const playNext = () => {
-            if (!tracks.length) return;
-            if (shuffle) {
-                const randomIndex = Math.floor(Math.random() * tracks.length);
-                void loadTrack(randomIndex, true);
+            if (!player) return;
+
+            if (mode === 'search') {
+                player.nextVideo();
+                setStatus('Skipping forward...');
                 return;
             }
-            void loadTrack(currentIndex + 1, true);
+
+            if (shuffle && tracks.length > 1) {
+                let nextIndex = currentIndex;
+                while (nextIndex === currentIndex) {
+                    nextIndex = Math.floor(Math.random() * tracks.length);
+                }
+                loadTrackAt(nextIndex, true);
+                return;
+            }
+
+            loadTrackAt(currentIndex + 1, true);
         };
 
         const playPrev = () => {
-            if (!tracks.length) return;
-            if (audio.currentTime > 3) {
-                audio.currentTime = 0;
-                syncProgress();
+            if (!player) return;
+
+            let currentTime = 0;
+            try {
+                currentTime = Number(player.getCurrentTime()) || 0;
+            } catch (error) {
+                currentTime = 0;
+            }
+
+            if (mode === 'search') {
+                if (currentTime > 3) {
+                    player.seekTo(0, true);
+                } else {
+                    player.previousVideo();
+                }
                 return;
             }
-            void loadTrack(currentIndex - 1, true);
+
+            if (currentTime > 3) {
+                player.seekTo(0, true);
+                return;
+            }
+
+            loadTrackAt(currentIndex - 1, true);
         };
 
-        root.querySelectorAll('[data-spotify-action]').forEach(button => {
-            button.addEventListener('click', () => {
-                const action = button.dataset.spotifyAction;
+        const runSearch = (rawQuery) => {
+            const query = rawQuery.trim();
+            if (!query) {
+                setStatus('Type a song or artist, then press Play.');
+                SoundManager.play('stop');
+                return;
+            }
 
-                if (action === 'play') {
-                    if (audio.paused) {
-                        if (!audio.src) {
-                            void loadTrack(currentIndex, true);
-                        } else {
-                            audio.play().catch(() => {
-                                setStatus('Playback blocked until user interaction.');
-                            });
-                        }
-                    } else {
-                        audio.pause();
-                    }
-                    return;
-                }
+            if (!player) {
+                setStatus('Player is still loading...');
+                return;
+            }
 
-                if (action === 'next') {
-                    playNext();
-                    return;
-                }
+            mode = 'search';
+            setTrackSelection(-1);
+            setNowPlaying(query, 'Search Results');
+            setStatus(`Searching: ${query}...`);
+            addRecentSearch(query);
 
-                if (action === 'prev') {
-                    playPrev();
-                    return;
-                }
-
-                if (action === 'shuffle') {
-                    shuffle = !shuffle;
-                    syncToggleButtons();
-                    return;
-                }
-
-                if (action === 'repeat') {
-                    repeat = !repeat;
-                    syncToggleButtons();
-                }
-            });
-        });
+            try {
+                player.loadPlaylist({ listType: 'search', list: query, index: 0 });
+            } catch (error) {
+                setStatus('Search failed. Try another query.');
+                SoundManager.play('error');
+            }
+        };
 
         trackListEl.addEventListener('click', (event) => {
             const button = event.target.closest('[data-spotify-track-index]');
             if (!button) return;
+
             const index = Number.parseInt(button.dataset.spotifyTrackIndex, 10);
-            if (Number.isFinite(index)) {
-                void loadTrack(index, true);
-            }
+            if (!Number.isFinite(index)) return;
+            loadTrackAt(index, true);
+        });
+
+        searchForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            runSearch(searchInput.value);
+        });
+
+        recentListEl.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-spotify-search-query]');
+            if (!button) return;
+            const query = button.dataset.spotifySearchQuery || '';
+            if (!query) return;
+            searchInput.value = query;
+            runSearch(query);
+        });
+
+        root.querySelectorAll('[data-spotify-action]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const action = button.dataset.spotifyAction;
+
+                if (!player && action !== 'shuffle' && action !== 'repeat') {
+                    setStatus('Player is still loading...');
+                    return;
+                }
+
+                if (action === 'play') {
+                    const state = getPlayerState();
+                    const ytState = window.YT?.PlayerState;
+
+                    if (state === ytState?.PLAYING) {
+                        player.pauseVideo();
+                    } else if (state === ytState?.UNSTARTED || state === ytState?.CUED) {
+                        if (mode === 'quick') {
+                            loadTrackAt(currentIndex, true);
+                        } else {
+                            player.playVideo();
+                        }
+                    } else {
+                        player.playVideo();
+                    }
+                } else if (action === 'next') {
+                    playNext();
+                } else if (action === 'prev') {
+                    playPrev();
+                } else if (action === 'shuffle') {
+                    shuffle = !shuffle;
+                    syncToggleButtons();
+                } else if (action === 'repeat') {
+                    repeat = !repeat;
+                    syncToggleButtons();
+                }
+
+                SoundManager.play('click');
+            });
         });
 
         progress.addEventListener('input', () => {
-            if (!audio.src) return;
-            const nextTime = Number.parseFloat(progress.value);
-            if (Number.isFinite(nextTime)) {
-                audio.currentTime = nextTime;
-                syncProgress();
-            }
-        });
+            if (!player) return;
+            seeking = true;
 
-        if (spotifyVolumeSlider) {
-            audio.volume = Number.parseInt(spotifyVolumeSlider.value, 10) / 100;
-            spotifyVolumeSlider.addEventListener('input', () => {
-                const volume = Number.parseInt(spotifyVolumeSlider.value, 10) / 100;
-                audio.volume = Math.max(0, Math.min(1, volume));
-                setStatus(`Spotify volume: ${Math.round(audio.volume * 100)}%`);
-            });
-        } else {
-            audio.volume = 0.8;
-        }
-
-        audio.addEventListener('loadedmetadata', syncProgress);
-        audio.addEventListener('timeupdate', syncProgress);
-        audio.addEventListener('play', () => {
-            syncPlayButton();
-            const track = tracks[currentIndex];
-            if (track) {
-                setStatus(`Playing: ${track.title}`);
-            }
-        });
-        audio.addEventListener('pause', () => {
-            syncPlayButton();
-            if (audio.currentTime < (audio.duration || Number.MAX_SAFE_INTEGER)) {
-                setStatus('Paused');
-            }
-        });
-        audio.addEventListener('ended', () => {
-            if (repeat) {
-                audio.currentTime = 0;
-                audio.play().catch(() => {});
-                return;
-            }
-            playNext();
-        });
-        audio.addEventListener('error', () => {
-            setStatus('Track failed to load. Please try another track.');
-        });
-
-        const fetchTopSongs = async () => {
-            setStatus('Loading Top Songs list...');
-
+            let duration = 0;
             try {
-                const response = await fetch(topSongsFeedUrl, { cache: 'no-store' });
-                if (!response.ok) {
-                    throw new Error(`Top Songs request failed: ${response.status}`);
-                }
-
-                const payload = await response.json();
-                const entries = payload?.feed?.entry || [];
-                const topTracks = entries
-                    .map((entry) => {
-                        const title = entry?.['im:name']?.label?.trim() || '';
-                        const artist = entry?.['im:artist']?.label?.trim() || 'Unknown Artist';
-                        if (!title) return null;
-                        return {
-                            title,
-                            artist,
-                            src: '',
-                            externalUrl: `${spotifySearchBase}${encodeURIComponent(`${title} ${artist}`)}`
-                        };
-                    })
-                    .filter(Boolean);
-
-                if (!topTracks.length) {
-                    throw new Error('No tracks in Top Songs response');
-                }
-
-                if (!document.body.contains(root)) return;
-
-                tracks = topTracks;
-                currentIndex = 0;
-                renderTrackList();
-                syncTrackSelection();
-                await loadTrack(0, false);
-                setStatus(`Top Songs loaded (${tracks.length} tracks).`);
+                duration = Number(player.getDuration()) || 0;
             } catch (error) {
-                if (!document.body.contains(root)) return;
-                setStatus('Could not fetch Top Songs. Using fallback list.');
+                duration = 0;
             }
+
+            const percent = Number.parseFloat(progress.value);
+            const target = duration > 0 && Number.isFinite(percent) ? (percent / 100) * duration : 0;
+            currentTimeEl.textContent = formatTime(target);
+            durationEl.textContent = formatTime(duration);
+        });
+
+        progress.addEventListener('change', () => {
+            if (!player) return;
+
+            let duration = 0;
+            try {
+                duration = Number(player.getDuration()) || 0;
+            } catch (error) {
+                duration = 0;
+            }
+
+            const percent = Number.parseFloat(progress.value);
+            const target = duration > 0 && Number.isFinite(percent) ? (percent / 100) * duration : 0;
+            player.seekTo(target, true);
+            seeking = false;
+            syncProgress();
+        });
+
+        progress.addEventListener('pointerup', () => {
+            if (!seeking) return;
+            progress.dispatchEvent(new Event('change'));
+        });
+
+        volumeSlider.addEventListener('input', () => {
+            const volume = Number.parseInt(volumeSlider.value, 10);
+            const safeVolume = Number.isFinite(volume) ? Math.max(0, Math.min(100, volume)) : 85;
+            if (player) {
+                player.setVolume(safeVolume);
+            }
+            setStatus(`Volume: ${safeVolume}%`);
+        });
+
+        const cleanup = () => {
+            if (destroyed) return;
+            destroyed = true;
+            stopProgressTimer();
+            if (player && typeof player.destroy === 'function') {
+                player.destroy();
+            }
+            win.__spotifyCleanup = null;
         };
 
+        win.__spotifyCleanup = cleanup;
+
         renderTrackList();
+        renderRecentSearches();
         syncToggleButtons();
         syncPlayButton();
-        void loadTrack(0, false);
-        void fetchTopSongs();
+        setTrackSelection(currentIndex);
+        setNowPlaying(tracks[0].title, tracks[0].artist);
+        setStatus('Loading Spotify player...');
+
+        this.getYouTubeAPI()
+            .then((YT) => {
+                if (destroyed) return;
+
+                const playerId = `spotify-player-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+                playerHost.id = playerId;
+
+                player = new YT.Player(playerId, {
+                    width: '100%',
+                    height: '100%',
+                    playerVars: {
+                        autoplay: 0,
+                        controls: 1,
+                        rel: 0,
+                        modestbranding: 1,
+                        playsinline: 1,
+                        origin: window.location.origin
+                    },
+                    events: {
+                        onReady: () => {
+                            if (destroyed) return;
+
+                            const volume = Number.parseInt(volumeSlider.value, 10);
+                            player.setVolume(Number.isFinite(volume) ? volume : 85);
+                            setStatus('Ready. Choose a song or search above.');
+                            loadTrackAt(0, false);
+                            syncPlayButton();
+                            startProgressTimer();
+                        },
+                        onStateChange: (event) => {
+                            if (destroyed) return;
+                            syncPlayButton();
+                            syncProgress();
+
+                            const ytState = YT.PlayerState;
+                            if (event.data === ytState.PLAYING) {
+                                syncVideoMeta();
+                                setStatus(`Playing: ${nowTitleEl.textContent}`);
+                                return;
+                            }
+
+                            if (event.data === ytState.PAUSED) {
+                                setStatus('Paused');
+                                return;
+                            }
+
+                            if (event.data === ytState.BUFFERING) {
+                                setStatus('Buffering...');
+                                return;
+                            }
+
+                            if (event.data === ytState.ENDED) {
+                                if (repeat) {
+                                    player.seekTo(0, true);
+                                    player.playVideo();
+                                    return;
+                                }
+                                playNext();
+                            }
+                        },
+                        onError: () => {
+                            setStatus('Playback blocked for this video. Try another track.');
+                            SoundManager.play('error');
+                        }
+                    }
+                });
+            })
+            .catch(() => {
+                if (destroyed) return;
+                setStatus('Unable to load Spotify player. Check network and try again.');
+                SoundManager.play('error');
+            });
     },
 
     initRecycleBin(win) {
@@ -2903,13 +3139,8 @@ X: x.com/vedangstwt`
         const win = this.windows[id];
         if (!win) return;
 
-        if (win.appId === 'spotify') {
-            const spotifyAudio = win.el.querySelector('[data-spotify-audio]');
-            if (spotifyAudio) {
-                spotifyAudio.pause();
-                spotifyAudio.removeAttribute('src');
-                spotifyAudio.load();
-            }
+        if (typeof win.el.__spotifyCleanup === 'function') {
+            win.el.__spotifyCleanup();
         }
 
         win.closed = true;
