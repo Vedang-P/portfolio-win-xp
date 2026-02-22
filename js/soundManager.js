@@ -2,7 +2,9 @@ const SoundManager = {
     enabled: true,
     unlocked: false,
     storageKey: 'xp-sound-enabled',
+    volumeStorageKey: 'xp-sound-volume',
     defaultVolume: 0.85,
+    masterVolume: 1,
 
     files: {
         click: 'assets/sounds/Windows XP Menu Command.wav',
@@ -16,7 +18,8 @@ const SoundManager = {
         shutdown: 'assets/sounds/Windows XP Shutdown.wav',
         stop: 'assets/sounds/Windows XP Critical Stop.wav',
         error: 'assets/sounds/Windows XP Error.wav',
-        notify: 'assets/sounds/Windows XP Notify.wav'
+        notify: 'assets/sounds/Windows XP Notify.wav',
+        recycle: 'assets/sounds/Windows XP Recycle.wav'
     },
     volumes: {
         startup: 0.2125
@@ -25,6 +28,10 @@ const SoundManager = {
     init() {
         const stored = localStorage.getItem(this.storageKey);
         this.enabled = stored !== '0';
+        const storedVolume = Number.parseFloat(localStorage.getItem(this.volumeStorageKey));
+        if (Number.isFinite(storedVolume)) {
+            this.masterVolume = Math.max(0, Math.min(1, storedVolume));
+        }
 
         Object.values(this.files).forEach(path => {
             const audio = new Audio(path);
@@ -49,8 +56,23 @@ const SoundManager = {
         this.updateTrayIcon();
 
         document.dispatchEvent(new CustomEvent('xp:sound-change', {
-            detail: { enabled: this.enabled }
+            detail: { enabled: this.enabled, volume: this.masterVolume }
         }));
+    },
+
+    setMasterVolume(volume) {
+        const nextVolume = Math.max(0, Math.min(1, Number(volume)));
+        this.masterVolume = Number.isFinite(nextVolume) ? nextVolume : this.masterVolume;
+        localStorage.setItem(this.volumeStorageKey, String(this.masterVolume));
+        this.updateTrayIcon();
+
+        document.dispatchEvent(new CustomEvent('xp:sound-change', {
+            detail: { enabled: this.enabled, volume: this.masterVolume }
+        }));
+    },
+
+    getMasterVolume() {
+        return this.masterVolume;
     },
 
     toggle() {
@@ -70,7 +92,8 @@ const SoundManager = {
 
         const file = this.files[name] || this.files.click;
         const audio = new Audio(file);
-        audio.volume = this.volumes[name] ?? this.defaultVolume;
+        const baseVolume = this.volumes[name] ?? this.defaultVolume;
+        audio.volume = Math.max(0, Math.min(1, baseVolume * this.masterVolume));
 
         audio.play().catch(() => {
             /* Autoplay/user-gesture restrictions can still fail intermittently. */
@@ -82,6 +105,7 @@ const SoundManager = {
         if (!trayIcon) return;
 
         trayIcon.classList.toggle('muted', !this.enabled);
-        trayIcon.title = this.enabled ? 'Volume (On)' : 'Volume (Muted)';
+        const percent = Math.round(this.masterVolume * 100);
+        trayIcon.title = this.enabled ? `Volume (On) ${percent}%` : `Volume (Muted) ${percent}%`;
     }
 };

@@ -77,14 +77,16 @@ Open the Contact app for direct links.`
             name: 'Projects',
             icon: 'assets/icons/Windows XP Icons/0001 - Closed Folder.ico',
             width: 640,
-            height: 460
+            height: 460,
+            externalUrl: 'https://github.com/Vedang-P?tab=repositories'
         },
         skills: {
             id: 'skills',
             name: 'Skills',
             icon: 'assets/icons/Windows XP Icons/0100 - Utilities.ico',
             width: 560,
-            height: 400
+            height: 400,
+            externalUrl: 'https://github.com/Vedang-P'
         },
         resume: {
             id: 'resume',
@@ -120,8 +122,8 @@ Open the Contact app for direct links.`
             id: 'mydocs',
             name: 'My Documents',
             icon: 'assets/icons/Windows XP Icons/0002 - My Documents.ico',
-            width: 520,
-            height: 380
+            width: 920,
+            height: 620
         },
         mycomputer: {
             id: 'mycomputer',
@@ -151,7 +153,29 @@ Open the Contact app for direct links.`
             icon: 'assets/icons/spotify.svg',
             width: 900,
             height: 620,
-            embedUrl: 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?utm_source=generator'
+            openUrl: 'https://open.spotify.com',
+            tracks: [
+                {
+                    title: 'Drive at Dusk',
+                    artist: 'SoundHelix',
+                    src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+                },
+                {
+                    title: 'Night Run',
+                    artist: 'SoundHelix',
+                    src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'
+                },
+                {
+                    title: 'Luna Blue',
+                    artist: 'SoundHelix',
+                    src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
+                },
+                {
+                    title: 'Desktop Dreams',
+                    artist: 'SoundHelix',
+                    src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'
+                }
+            ]
         },
         cmd: {
             id: 'cmd',
@@ -219,7 +243,7 @@ Open the Contact app for direct links.`
             case 'mycomputer':
                 return this.generateMyComputerHTML();
             case 'recycle':
-                return '<div class="contact-content"><p>Recycle Bin is empty.</p></div>';
+                return this.generateRecycleBinHTML();
             case 'ie':
                 return this.generateIEHTML(app);
             case 'spotify':
@@ -435,22 +459,103 @@ Open the Contact app for direct links.`
 
     generateDocumentsHTML() {
         return `
-            <div class="xp-list">
-                <div class="xp-list-header">Portfolio Documents</div>
-                <ul>
-                    <li class="xp-list-item">
-                        <img src="${this.apps.resume.icon}" alt="">
-                        <span>Resume.txt (open from desktop icon)</span>
-                    </li>
-                    <li class="xp-list-item">
-                        <img src="${this.apps.projects.icon}" alt="">
-                        <span>Projects Folder</span>
-                    </li>
-                    <li class="xp-list-item">
-                        <img src="${this.apps.paint.icon}" alt="">
-                        <span>Sketches.bmp (open Paint to draw)</span>
-                    </li>
-                </ul>
+            <div class="mydocs-shell" data-docs-root>
+                <div class="mydocs-menubar">
+                    <button type="button" class="mydocs-menu-btn">File</button>
+                    <button type="button" class="mydocs-menu-btn">Edit</button>
+                    <button type="button" class="mydocs-menu-btn">View</button>
+                    <button type="button" class="mydocs-menu-btn">Favorites</button>
+                    <button type="button" class="mydocs-menu-btn">Tools</button>
+                    <button type="button" class="mydocs-menu-btn">Help</button>
+                </div>
+
+                <div class="mydocs-toolbar">
+                    <button type="button" class="mydocs-nav-btn" data-docs-action="back" title="Back" aria-label="Back">
+                        &#8592;
+                    </button>
+                    <button type="button" class="mydocs-nav-btn" data-docs-action="forward" title="Forward" aria-label="Forward">
+                        &#8594;
+                    </button>
+                    <button type="button" class="mydocs-nav-btn" data-docs-action="up" title="Up" aria-label="Up">
+                        &#8593;
+                    </button>
+                    <div class="mydocs-toolbar-divider" aria-hidden="true"></div>
+                    <button type="button" class="mydocs-tool-btn" data-docs-action="new-folder">
+                        <img src="assets/icons/Windows XP Icons/0000 - Open Folder.ico" alt="">
+                        <span>New Folder</span>
+                    </button>
+                    <button type="button" class="mydocs-tool-btn" data-docs-action="delete">
+                        <img src="assets/icons/Windows XP Icons/0021 -  Recycle Bin Full.ico" alt="">
+                        <span>Delete</span>
+                    </button>
+                    <button type="button" class="mydocs-tool-btn" data-docs-action="open-selected">
+                        <img src="assets/icons/Windows XP Icons/0089 - Explorer.ico" alt="">
+                        <span>Open</span>
+                    </button>
+                    <div class="mydocs-toolbar-spacer"></div>
+                    <label class="mydocs-view-label">
+                        View
+                        <select data-docs-view-select>
+                            <option value="details" selected>Details</option>
+                            <option value="list">List</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="mydocs-address-row">
+                    <span class="mydocs-address-label">Address</span>
+                    <div class="mydocs-address-value" data-docs-path></div>
+                    <button type="button" class="mydocs-go-btn" data-docs-action="open-selected">&#8594;</button>
+                </div>
+
+                <div class="mydocs-main">
+                    <aside class="mydocs-sidebar">
+                        <section class="mydocs-side-group">
+                            <header class="mydocs-side-header">File and Folder Tasks</header>
+                            <ul class="mydocs-side-list">
+                                <li>
+                                    <button type="button" class="mydocs-side-action" data-docs-action="new-folder">Make a new folder</button>
+                                </li>
+                                <li>
+                                    <button type="button" class="mydocs-side-action" data-docs-action="open-selected">Open selected item</button>
+                                </li>
+                                <li>
+                                    <button type="button" class="mydocs-side-action" data-docs-action="delete">Delete selected item</button>
+                                </li>
+                            </ul>
+                        </section>
+
+                        <section class="mydocs-side-group">
+                            <header class="mydocs-side-header">Other Places</header>
+                            <ul class="mydocs-side-list mydocs-place-list" data-docs-places></ul>
+                        </section>
+
+                        <section class="mydocs-side-group">
+                            <header class="mydocs-side-header">Details</header>
+                            <div class="mydocs-details-panel" data-docs-selection-details>Select a file or folder to see details.</div>
+                        </section>
+                    </aside>
+
+                    <section class="mydocs-content">
+                        <div class="mydocs-content-head">
+                            <div class="mydocs-folder-title" data-docs-folder-title>My Documents</div>
+                            <label class="mydocs-search-wrap">
+                                Search
+                                <input type="text" data-docs-search placeholder="Search in this folder">
+                            </label>
+                        </div>
+
+                        <div class="mydocs-columns" data-docs-columns>
+                            <div class="mydocs-col mydocs-col-name">Name</div>
+                            <div class="mydocs-col mydocs-col-type">Type</div>
+                            <div class="mydocs-col mydocs-col-size">Size</div>
+                            <div class="mydocs-col mydocs-col-modified">Date Modified</div>
+                        </div>
+
+                        <div class="mydocs-items" data-docs-items tabindex="0"></div>
+                        <div class="mydocs-status" data-docs-status></div>
+                    </section>
+                </div>
             </div>
         `;
     },
@@ -586,6 +691,10 @@ Open the Contact app for direct links.`
         `;
     },
 
+    generateRecycleBinHTML() {
+        return `<div class="recycle-root" data-recycle-root></div>`;
+    },
+
     generateIEHTML(app) {
         return `
             <div class="ie-app">
@@ -606,25 +715,75 @@ Open the Contact app for direct links.`
     },
 
     generateSpotifyHTML(app) {
+        const trackItems = app.tracks.map((track, index) => `
+            <button
+                type="button"
+                class="spotify-track-btn ${index === 0 ? 'active' : ''}"
+                data-spotify-track-index="${index}"
+                title="${track.title} - ${track.artist}"
+            >
+                <span class="spotify-track-title">${track.title}</span>
+                <span class="spotify-track-artist">${track.artist}</span>
+            </button>
+        `).join('');
+
         return `
-            <div class="spotify-app">
+            <div class="spotify-app" data-spotify-app>
                 <div class="spotify-toolbar">
                     <div class="spotify-brand">
                         <img src="${this.apps.spotify.icon}" alt="">
                         <span>Spotify</span>
                     </div>
-                    <a class="spotify-open-btn" href="https://open.spotify.com/" target="_blank" rel="noreferrer">Open in Browser</a>
+                    <a class="spotify-open-btn" href="${app.openUrl}" target="_blank" rel="noreferrer">Open in Browser</a>
                 </div>
-                <div class="spotify-frame-wrap">
-                    <iframe
-                        class="spotify-frame"
-                        src="${app.embedUrl}"
-                        title="Spotify Player"
-                        loading="lazy"
-                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                    ></iframe>
+
+                <div class="spotify-layout">
+                    <aside class="spotify-sidebar">
+                        <div class="spotify-sidebar-title">Your Tracks</div>
+                        <div class="spotify-track-list">
+                            ${trackItems}
+                        </div>
+                    </aside>
+
+                    <section class="spotify-main">
+                        <div class="spotify-now">
+                            <img class="spotify-now-art" src="${this.apps.spotify.icon}" alt="">
+                            <div class="spotify-now-meta">
+                                <div class="spotify-now-title" data-spotify-now-title>${app.tracks[0].title}</div>
+                                <div class="spotify-now-artist" data-spotify-now-artist>${app.tracks[0].artist}</div>
+                            </div>
+                        </div>
+
+                        <div class="spotify-progress-row">
+                            <span data-spotify-current>0:00</span>
+                            <input type="range" min="0" max="100" value="0" data-spotify-progress>
+                            <span data-spotify-duration>0:00</span>
+                        </div>
+
+                        <div class="spotify-controls">
+                            <button type="button" data-spotify-action="shuffle">Shuffle Off</button>
+                            <button type="button" data-spotify-action="prev">&#9664;&#9664;</button>
+                            <button type="button" data-spotify-action="play">Play</button>
+                            <button type="button" data-spotify-action="next">&#9654;&#9654;</button>
+                            <button type="button" data-spotify-action="repeat">Repeat Off</button>
+                        </div>
+
+                        <div class="spotify-volume-grid">
+                            <label>
+                                <span>Spotify Volume</span>
+                                <input type="range" min="0" max="100" value="80" data-spotify-volume>
+                            </label>
+                            <label>
+                                <span>Website Volume</span>
+                                <input type="range" min="0" max="100" value="${Math.round(SoundManager.getMasterVolume() * 100)}" data-system-volume>
+                            </label>
+                        </div>
+
+                        <audio data-spotify-audio preload="metadata"></audio>
+                    </section>
                 </div>
-                <div class="spotify-status">Spotify Web Player</div>
+
+                <div class="spotify-status" data-spotify-status>Ready</div>
             </div>
         `;
     },
@@ -652,7 +811,6 @@ Open the Contact app for direct links.`
         return `
             <div class="coming-soon-content">
                 <div class="coming-soon-title">Coming Soon</div>
-                <div class="coming-soon-subtitle">This app will be added in a later update.</div>
             </div>
         `;
     }

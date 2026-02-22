@@ -33,6 +33,8 @@ const WindowManager = {
         boxEl: null,
         moved: false
     },
+    recycledDesktopItems: [],
+    deletedDesktopApps: new Set(),
 
     init() {
         DragController.init();
@@ -121,6 +123,12 @@ const WindowManager = {
             if (event.key === 'Enter' && this.selectedIcon) {
                 event.preventDefault();
                 this.open(this.selectedIcon.dataset.app);
+                return;
+            }
+
+            if (event.key === 'Delete') {
+                event.preventDefault();
+                this.recycleSelectedIcons();
                 return;
             }
 
@@ -275,6 +283,161 @@ const WindowManager = {
         }
 
         this.open(appId);
+    },
+
+    isRecyclableDesktopApp(appId) {
+        return Boolean(appId) && appId !== 'recycle';
+    },
+
+    getDesktopAppMeta(appId) {
+        return AppsRegistry.getDesktopApps().find(app => app.appId === appId) || null;
+    },
+
+    recycleSelectedIcons() {
+        const selectedIcons = Array.from(document.querySelectorAll('.desktop-icon.selected'));
+        if (!selectedIcons.length) {
+            SoundManager.play('stop');
+            return;
+        }
+
+        let recycledAny = false;
+        selectedIcons.forEach(icon => {
+            const appId = icon.dataset.app;
+            if (this.recycleDesktopIcon(appId)) {
+                recycledAny = true;
+            }
+        });
+
+        if (recycledAny) {
+            SoundManager.play('recycle');
+        } else {
+            SoundManager.play('error');
+        }
+    },
+
+    recycleDesktopIcon(appId) {
+        if (!this.isRecyclableDesktopApp(appId)) return false;
+        if (this.deletedDesktopApps.has(appId)) return false;
+
+        const appMeta = this.getDesktopAppMeta(appId);
+        if (!appMeta) return false;
+
+        const iconEl = document.querySelector(`.desktop-icon[data-app="${appId}"]`);
+        const currentPosition = iconEl
+            ? {
+                x: Number.parseInt(iconEl.style.left, 10) || 0,
+                y: Number.parseInt(iconEl.style.top, 10) || 0
+            }
+            : (this.iconPositions[appId] || { x: 0, y: 0 });
+
+        this.recycledDesktopItems = this.recycledDesktopItems.filter(item => item.appId !== appId);
+        this.recycledDesktopItems.push({
+            appId,
+            name: appMeta.name,
+            icon: appMeta.icon,
+            position: currentPosition,
+            deletedAt: Date.now()
+        });
+
+        this.deletedDesktopApps.add(appId);
+
+        Object.values(this.windows).forEach(win => {
+            if (win.appId === appId && !win.closed) {
+                this.close(win.id, false);
+            }
+        });
+
+        if (this.selectedIcon && this.selectedIcon.dataset.app === appId) {
+            this.selectedIcon = null;
+        }
+
+        this.renderIcons();
+        this.updateRecycleBinVisuals();
+        this.refreshRecycleBinWindows();
+        return true;
+    },
+
+    restoreRecycleItem(appId) {
+        const item = this.recycledDesktopItems.find(entry => entry.appId === appId);
+        if (!item) return false;
+
+        this.recycledDesktopItems = this.recycledDesktopItems.filter(entry => entry.appId !== appId);
+        this.deletedDesktopApps.delete(appId);
+
+        if (item.position) {
+            this.iconPositions[appId] = { x: item.position.x, y: item.position.y };
+        }
+
+        this.renderIcons();
+        this.updateRecycleBinVisuals();
+        this.refreshRecycleBinWindows();
+        SoundManager.play('restore');
+        return true;
+    },
+
+    restoreAllRecycleItems() {
+        if (!this.recycledDesktopItems.length) {
+            SoundManager.play('stop');
+            return false;
+        }
+
+        this.recycledDesktopItems.forEach(item => {
+            this.deletedDesktopApps.delete(item.appId);
+            if (item.position) {
+                this.iconPositions[item.appId] = { x: item.position.x, y: item.position.y };
+            }
+        });
+        this.recycledDesktopItems = [];
+
+        this.renderIcons();
+        this.updateRecycleBinVisuals();
+        this.refreshRecycleBinWindows();
+        SoundManager.play('restore');
+        return true;
+    },
+
+    emptyRecycleBin() {
+        if (!this.recycledDesktopItems.length) {
+            SoundManager.play('stop');
+            return false;
+        }
+
+        this.recycledDesktopItems = [];
+        this.updateRecycleBinVisuals();
+        this.refreshRecycleBinWindows();
+        SoundManager.play('recycle');
+        return true;
+    },
+
+    updateRecycleBinVisuals() {
+        const emptyIcon = 'assets/icons/Windows XP Icons/0020 - Recycle Bin Empty.ico';
+        const fullIcon = 'assets/icons/Windows XP Icons/0021 -  Recycle Bin Full.ico';
+        const nextIcon = this.recycledDesktopItems.length ? fullIcon : emptyIcon;
+
+        if (AppsRegistry.apps.recycle) {
+            AppsRegistry.apps.recycle.icon = nextIcon;
+        }
+
+        document.querySelectorAll('.desktop-icon[data-app="recycle"] img').forEach(img => {
+            img.src = nextIcon;
+        });
+
+        Object.values(this.windows).forEach(win => {
+            if (win.appId !== 'recycle' || win.closed) return;
+            const titleIcon = win.el.querySelector('.window-title img');
+            if (titleIcon) titleIcon.src = nextIcon;
+
+            const taskIcon = document.querySelector(`.taskbar-app[data-id="${win.id}"] .app-icon`);
+            if (taskIcon) taskIcon.src = nextIcon;
+        });
+    },
+
+    refreshRecycleBinWindows() {
+        Object.values(this.windows).forEach(win => {
+            if (win.appId === 'recycle' && !win.closed) {
+                this.renderRecycleBinContents(win.el);
+            }
+        });
     },
 
     loadIconPositions() {
@@ -544,6 +707,11 @@ const WindowManager = {
     },
 
     resetIconsToDefaultPositions() {
+        this.recycledDesktopItems = [];
+        this.deletedDesktopApps.clear();
+        this.updateRecycleBinVisuals();
+        this.renderIcons();
+
         const icons = Array.from(document.querySelectorAll('.desktop-icon'));
         if (!icons.length) return;
 
@@ -564,16 +732,18 @@ const WindowManager = {
 
         this.clearIconSelection();
         this.suppressIconOpen = '';
+        this.refreshRecycleBinWindows();
     },
 
     renderIcons() {
         const container = document.getElementById('desktop-icons');
         container.innerHTML = '';
 
-        const desktopApps = AppsRegistry.getDesktopApps();
+        const desktopApps = AppsRegistry.getDesktopApps()
+            .filter(app => !this.deletedDesktopApps.has(app.appId));
         const appIds = new Set(desktopApps.map(app => app.appId));
         Object.keys(this.iconPositions).forEach(appId => {
-            if (!appIds.has(appId)) {
+            if (!appIds.has(appId) && !this.deletedDesktopApps.has(appId)) {
                 delete this.iconPositions[appId];
             }
         });
@@ -629,16 +799,11 @@ const WindowManager = {
             });
         });
 
+        this.updateRecycleBinVisuals();
         this.saveIconPositions();
     },
 
     open(appId) {
-        const existing = Object.values(this.windows).find(w => w.appId === appId && !w.closed);
-        if (existing) {
-            existing.minimized ? this.restore(existing.id) : this.focus(existing.id);
-            return;
-        }
-
         const app = AppsRegistry.getApp(appId);
         if (!app) {
             SoundManager.play('stop');
@@ -647,6 +812,12 @@ const WindowManager = {
 
         if (app.externalUrl) {
             window.location.assign(app.externalUrl);
+            return;
+        }
+
+        const existing = Object.values(this.windows).find(w => w.appId === appId && !w.closed);
+        if (existing) {
+            existing.minimized ? this.restore(existing.id) : this.focus(existing.id);
             return;
         }
 
@@ -716,12 +887,24 @@ const WindowManager = {
             setTimeout(() => this.initProjects(win), 0);
         }
 
+        if (app.id === 'mydocs') {
+            setTimeout(() => this.initDocuments(win), 0);
+        }
+
         if (app.id === 'control') {
             setTimeout(() => this.initControlPanel(win), 0);
         }
 
         if (app.id === 'paint') {
             setTimeout(() => this.initPaint(win), 0);
+        }
+
+        if (app.id === 'spotify') {
+            setTimeout(() => this.initSpotify(win), 0);
+        }
+
+        if (app.id === 'recycle') {
+            setTimeout(() => this.initRecycleBin(win), 0);
         }
 
         if (app.id === 'about') {
@@ -768,6 +951,734 @@ const WindowManager = {
                 }
             });
         });
+    },
+
+    initDocuments(win) {
+        const root = win.querySelector('[data-docs-root]');
+        if (!root || root.dataset.bound === '1') return;
+        root.dataset.bound = '1';
+
+        const itemsEl = root.querySelector('[data-docs-items]');
+        const statusEl = root.querySelector('[data-docs-status]');
+        const pathEl = root.querySelector('[data-docs-path]');
+        const folderTitleEl = root.querySelector('[data-docs-folder-title]');
+        const detailsEl = root.querySelector('[data-docs-selection-details]');
+        const placesEl = root.querySelector('[data-docs-places]');
+        const searchInput = root.querySelector('[data-docs-search]');
+        const viewSelect = root.querySelector('[data-docs-view-select]');
+        const columnsEl = root.querySelector('[data-docs-columns]');
+        if (!itemsEl || !statusEl || !pathEl || !folderTitleEl || !detailsEl || !placesEl || !searchInput || !viewSelect || !columnsEl) {
+            return;
+        }
+
+        const escapeHtml = (value) => {
+            if (typeof AppsRegistry.escapeHTML === 'function') {
+                return AppsRegistry.escapeHTML(value);
+            }
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        };
+
+        const iconSet = {
+            folder: 'assets/icons/Windows XP Icons/0001 - Closed Folder.ico',
+            mydocs: 'assets/icons/Windows XP Icons/0002 - My Documents.ico',
+            pictures: 'assets/icons/Windows XP Icons/0003 - My Pictures.ico',
+            music: 'assets/icons/Windows XP Icons/0004 - My Music.ico',
+            text: 'assets/icons/Windows XP Icons/0047 - Text Document.ico',
+            image: 'assets/icons/Windows XP Icons/0048 - Bitmap.ico',
+            shortcut: 'assets/icons/Windows XP Icons/0033 - Shortcut.ico',
+            ie: 'assets/icons/Windows XP Icons/0081 - Internet Explorer.ico',
+            paint: 'assets/icons/Windows XP Icons/0071 - Microsoft Paint.ico',
+            spotify: 'assets/icons/spotify.svg',
+            projects: 'assets/icons/Windows XP Icons/0001 - Closed Folder.ico',
+            mycomputer: 'assets/icons/Windows XP Icons/0018 - My Computer.ico'
+        };
+
+        const formatDate = (year, month, day, hour, minute) => {
+            return new Date(year, month - 1, day, hour, minute).toLocaleString('en-US', {
+                month: '2-digit',
+                day: '2-digit',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+        };
+
+        const rootFolder = {
+            id: 'docs-root',
+            name: 'My Documents',
+            kind: 'folder',
+            icon: iconSet.mydocs,
+            modified: formatDate(2026, 2, 22, 2, 35),
+            children: [
+                {
+                    id: 'docs-portfolio',
+                    name: 'Portfolio',
+                    kind: 'folder',
+                    icon: iconSet.folder,
+                    modified: formatDate(2026, 2, 22, 1, 12),
+                    children: [
+                        {
+                            id: 'docs-projects-shortcut',
+                            name: 'Projects.lnk',
+                            kind: 'shortcut',
+                            icon: iconSet.projects,
+                            size: '1 KB',
+                            modified: formatDate(2026, 2, 21, 8, 4),
+                            open: { type: 'app', appId: 'projects' }
+                        },
+                        {
+                            id: 'docs-paint-shortcut',
+                            name: 'Paint.lnk',
+                            kind: 'shortcut',
+                            icon: iconSet.paint,
+                            size: '1 KB',
+                            modified: formatDate(2026, 2, 20, 7, 55),
+                            open: { type: 'app', appId: 'paint' }
+                        },
+                        {
+                            id: 'docs-spotify-shortcut',
+                            name: 'Spotify.lnk',
+                            kind: 'shortcut',
+                            icon: iconSet.spotify,
+                            size: '1 KB',
+                            modified: formatDate(2026, 2, 20, 9, 16),
+                            open: { type: 'app', appId: 'spotify' }
+                        }
+                    ]
+                },
+                {
+                    id: 'docs-notes',
+                    name: 'Notes',
+                    kind: 'folder',
+                    icon: iconSet.folder,
+                    modified: formatDate(2026, 2, 20, 11, 42),
+                    children: [
+                        {
+                            id: 'docs-about-note',
+                            name: 'About Vedang.txt',
+                            kind: 'text',
+                            icon: iconSet.text,
+                            size: '2 KB',
+                            modified: formatDate(2026, 2, 20, 11, 42),
+                            content: `Vedang
+Frontend engineer building nostalgic, fast interfaces.
+
+This XP portfolio is a frontend-only recreation with desktop interactions, sounds, and app windows.`
+                        },
+                        {
+                            id: 'docs-contact-note',
+                            name: 'Contact.txt',
+                            kind: 'text',
+                            icon: iconSet.text,
+                            size: '1 KB',
+                            modified: formatDate(2026, 2, 19, 10, 21),
+                            content: `Email: hello@example.com
+GitHub: github.com/Vedang-P
+X: x.com/vedangstwt`
+                        }
+                    ]
+                },
+                {
+                    id: 'docs-pictures',
+                    name: 'My Pictures',
+                    kind: 'folder',
+                    icon: iconSet.pictures,
+                    modified: formatDate(2026, 2, 18, 3, 5),
+                    children: [
+                        {
+                            id: 'docs-wallpaper-bliss',
+                            name: 'Bliss.jpg',
+                            kind: 'image',
+                            icon: iconSet.image,
+                            size: '1.6 MB',
+                            modified: formatDate(2026, 2, 17, 8, 33)
+                        },
+                        {
+                            id: 'docs-redbull-shot',
+                            name: 'Redbull Grid.jpg',
+                            kind: 'image',
+                            icon: iconSet.image,
+                            size: '2.1 MB',
+                            modified: formatDate(2026, 2, 17, 8, 41)
+                        }
+                    ]
+                },
+                {
+                    id: 'docs-music',
+                    name: 'My Music',
+                    kind: 'folder',
+                    icon: iconSet.music,
+                    modified: formatDate(2026, 2, 18, 4, 19),
+                    children: [
+                        {
+                            id: 'docs-track-1',
+                            name: 'Drive at Dusk.url',
+                            kind: 'shortcut',
+                            icon: iconSet.spotify,
+                            size: '1 KB',
+                            modified: formatDate(2026, 2, 18, 4, 20),
+                            open: { type: 'app', appId: 'spotify' }
+                        }
+                    ]
+                },
+                {
+                    id: 'docs-resume-link',
+                    name: 'Resume.url',
+                    kind: 'shortcut',
+                    icon: iconSet.ie,
+                    size: '1 KB',
+                    modified: formatDate(2026, 2, 22, 2, 8),
+                    open: { type: 'external', url: 'https://x.com/vedangstwt' }
+                },
+                {
+                    id: 'docs-github-link',
+                    name: 'GitHub.url',
+                    kind: 'shortcut',
+                    icon: iconSet.ie,
+                    size: '1 KB',
+                    modified: formatDate(2026, 2, 22, 2, 10),
+                    open: { type: 'external', url: 'https://github.com/Vedang-P' }
+                },
+                {
+                    id: 'docs-internet-shortcut',
+                    name: 'Internet Explorer.lnk',
+                    kind: 'shortcut',
+                    icon: iconSet.ie,
+                    size: '1 KB',
+                    modified: formatDate(2026, 2, 20, 6, 14),
+                    open: { type: 'app', appId: 'ie' }
+                }
+            ]
+        };
+
+        let nodeIndex = new Map();
+        let folderIndex = new Map();
+        const reindex = () => {
+            nodeIndex = new Map();
+            folderIndex = new Map();
+
+            const visit = (node, parentId = '') => {
+                node.parentId = parentId;
+                nodeIndex.set(node.id, node);
+                if (node.kind === 'folder') {
+                    folderIndex.set(node.id, node);
+                    (node.children || []).forEach(child => visit(child, node.id));
+                }
+            };
+
+            visit(rootFolder);
+        };
+        reindex();
+
+        let currentFolderId = rootFolder.id;
+        let selectedItemId = '';
+        let searchQuery = '';
+        let viewMode = 'details';
+        let history = [rootFolder.id];
+        let historyIndex = 0;
+        let newFolderIndex = 1;
+
+        const getNode = (nodeId) => nodeIndex.get(nodeId) || null;
+        const getFolder = (folderId) => folderIndex.get(folderId) || null;
+        const getCurrentFolder = () => getFolder(currentFolderId);
+        const getSelectedItem = () => getNode(selectedItemId);
+
+        const itemTypeLabel = (item) => {
+            if (!item) return '';
+            if (item.kind === 'folder') return 'File Folder';
+            if (item.kind === 'text') return 'Text Document';
+            if (item.kind === 'image') return 'JPEG Image';
+            if (item.kind === 'shortcut') return 'Shortcut';
+            return 'File';
+        };
+
+        const getPath = (folderId) => {
+            const parts = [];
+            let cursor = getFolder(folderId);
+
+            while (cursor) {
+                parts.unshift(cursor.name);
+                cursor = cursor.parentId ? getFolder(cursor.parentId) : null;
+            }
+
+            return parts.join(' \\ ');
+        };
+
+        const getFolderItems = () => {
+            const folder = getCurrentFolder();
+            if (!folder || !Array.isArray(folder.children)) return [];
+
+            const filtered = folder.children.filter(item => {
+                if (!searchQuery) return true;
+                return item.name.toLowerCase().includes(searchQuery);
+            });
+
+            return filtered.sort((a, b) => {
+                const folderBias = Number(b.kind === 'folder') - Number(a.kind === 'folder');
+                if (folderBias !== 0) return folderBias;
+                return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+            });
+        };
+
+        const syncActionStates = () => {
+            const currentFolder = getCurrentFolder();
+            const hasSelection = Boolean(getSelectedItem());
+            const canGoBack = historyIndex > 0;
+            const canGoForward = historyIndex < history.length - 1;
+            const canGoUp = Boolean(currentFolder && currentFolder.parentId);
+
+            root.querySelectorAll('button[data-docs-action="back"]').forEach(btn => {
+                btn.disabled = !canGoBack;
+            });
+            root.querySelectorAll('button[data-docs-action="forward"]').forEach(btn => {
+                btn.disabled = !canGoForward;
+            });
+            root.querySelectorAll('button[data-docs-action="up"]').forEach(btn => {
+                btn.disabled = !canGoUp;
+            });
+            root.querySelectorAll('button[data-docs-action="open-selected"]').forEach(btn => {
+                btn.disabled = !hasSelection;
+            });
+            root.querySelectorAll('button[data-docs-action="delete"]').forEach(btn => {
+                btn.disabled = !hasSelection;
+            });
+        };
+
+        const renderPlaces = () => {
+            const places = [
+                { id: rootFolder.id, name: 'My Documents', icon: iconSet.mydocs },
+                { id: 'docs-mycomputer', name: 'My Computer', icon: iconSet.mycomputer, appId: 'mycomputer' },
+                ...rootFolder.children
+                    .filter(item => item.kind === 'folder')
+                    .slice(0, 5)
+                    .map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        icon: item.icon || iconSet.folder
+                    }))
+            ];
+
+            placesEl.innerHTML = places.map(place => {
+                const isActive = place.id === currentFolderId;
+                const placeIdAttr = place.appId ? '' : `data-docs-place-id="${escapeHtml(place.id)}"`;
+                const appAttr = place.appId ? `data-docs-open-app="${escapeHtml(place.appId)}"` : '';
+
+                return `
+                    <li class="mydocs-place ${isActive ? 'active' : ''}">
+                        <button type="button" class="mydocs-place-btn" ${placeIdAttr} ${appAttr}>
+                            <img src="${place.icon}" alt="">
+                            <span>${escapeHtml(place.name)}</span>
+                        </button>
+                    </li>
+                `;
+            }).join('');
+        };
+
+        const renderDetailsPanel = () => {
+            const selected = getSelectedItem();
+            if (!selected) {
+                detailsEl.textContent = 'Select a file or folder to see details.';
+                return;
+            }
+
+            const summary = selected.kind === 'folder'
+                ? `${(selected.children || []).length} object(s)`
+                : (selected.size || '1 KB');
+            const preview = selected.kind === 'text' && selected.content
+                ? `<pre>${escapeHtml(selected.content.slice(0, 160))}</pre>`
+                : '';
+
+            detailsEl.innerHTML = `
+                <div class="mydocs-detail-name">${escapeHtml(selected.name)}</div>
+                <div class="mydocs-detail-meta">${itemTypeLabel(selected)}</div>
+                <div class="mydocs-detail-meta">${escapeHtml(summary)}</div>
+                <div class="mydocs-detail-meta">${escapeHtml(selected.modified || '')}</div>
+                ${preview}
+            `;
+        };
+
+        const renderItems = () => {
+            const items = getFolderItems();
+            itemsEl.dataset.view = viewMode;
+            columnsEl.classList.toggle('hidden', viewMode !== 'details');
+
+            if (!items.length) {
+                itemsEl.innerHTML = `
+                    <div class="mydocs-empty-state">
+                        ${searchQuery ? 'No items match your search.' : 'This folder is empty.'}
+                    </div>
+                `;
+                statusEl.textContent = searchQuery ? '0 objects found' : '0 objects';
+                return;
+            }
+
+            const rows = items.map(item => {
+                const selectedClass = item.id === selectedItemId ? 'selected' : '';
+                const icon = item.icon || (item.kind === 'folder' ? iconSet.folder : iconSet.text);
+                const size = item.kind === 'folder' ? '' : (item.size || '1 KB');
+
+                if (viewMode === 'list') {
+                    return `
+                        <div class="mydocs-item mydocs-item-list ${selectedClass}" data-docs-item-id="${escapeHtml(item.id)}">
+                            <img class="mydocs-item-icon" src="${icon}" alt="">
+                            <span class="mydocs-item-name">${escapeHtml(item.name)}</span>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="mydocs-item ${selectedClass}" data-docs-item-id="${escapeHtml(item.id)}">
+                        <div class="mydocs-col mydocs-col-name">
+                            <img class="mydocs-item-icon" src="${icon}" alt="">
+                            <span class="mydocs-item-name">${escapeHtml(item.name)}</span>
+                        </div>
+                        <div class="mydocs-col mydocs-col-type">${itemTypeLabel(item)}</div>
+                        <div class="mydocs-col mydocs-col-size">${escapeHtml(size)}</div>
+                        <div class="mydocs-col mydocs-col-modified">${escapeHtml(item.modified || '')}</div>
+                    </div>
+                `;
+            }).join('');
+
+            itemsEl.innerHTML = rows;
+            const selected = getSelectedItem();
+            statusEl.textContent = `${items.length} object(s)${selected ? `, ${selected.name} selected` : ''}`;
+        };
+
+        const renderHeader = () => {
+            const current = getCurrentFolder();
+            if (!current) return;
+            folderTitleEl.textContent = current.name;
+            pathEl.textContent = getPath(current.id);
+        };
+
+        const renderAll = () => {
+            renderHeader();
+            renderPlaces();
+            renderItems();
+            renderDetailsPanel();
+            syncActionStates();
+        };
+
+        const selectItem = (itemId) => {
+            selectedItemId = itemId || '';
+            renderAll();
+        };
+
+        const navigateToFolder = (folderId, pushHistory = true) => {
+            const folder = getFolder(folderId);
+            if (!folder) {
+                SoundManager.play('stop');
+                return;
+            }
+
+            currentFolderId = folder.id;
+            selectedItemId = '';
+
+            if (pushHistory) {
+                history = history.slice(0, historyIndex + 1);
+                history.push(folder.id);
+                historyIndex = history.length - 1;
+            }
+
+            renderAll();
+            itemsEl.focus();
+        };
+
+        const openTextFile = (item) => {
+            if (!item) return;
+
+            this.open('about');
+
+            const syncEditor = (attempt = 0) => {
+                const noteWindow = Object.values(this.windows).find(entry => entry.appId === 'about' && !entry.closed);
+                if (!noteWindow) {
+                    if (attempt < 8) setTimeout(() => syncEditor(attempt + 1), 35);
+                    return;
+                }
+
+                const editor = noteWindow.el.querySelector('[data-notepad-editor]');
+                const title = noteWindow.el.querySelector('.window-title span');
+                if (!editor) {
+                    if (attempt < 8) setTimeout(() => syncEditor(attempt + 1), 35);
+                    return;
+                }
+
+                editor.value = item.content || '';
+                editor.focus();
+                if (title) {
+                    title.textContent = `${item.name} - Notepad`;
+                }
+            };
+
+            syncEditor();
+        };
+
+        const openItem = (item) => {
+            if (!item) {
+                SoundManager.play('stop');
+                return;
+            }
+
+            if (item.kind === 'folder') {
+                navigateToFolder(item.id, true);
+                SoundManager.play('open');
+                return;
+            }
+
+            if (item.open && item.open.type === 'app') {
+                this.open(item.open.appId);
+                SoundManager.play('open');
+                return;
+            }
+
+            if (item.open && item.open.type === 'external' && item.open.url) {
+                window.location.assign(item.open.url);
+                SoundManager.play('open');
+                return;
+            }
+
+            if (item.kind === 'text') {
+                openTextFile(item);
+                SoundManager.play('open');
+                return;
+            }
+
+            if (item.kind === 'image') {
+                this.open('paint');
+                SoundManager.play('open');
+                return;
+            }
+
+            SoundManager.play('stop');
+        };
+
+        const createFolder = () => {
+            const folder = getCurrentFolder();
+            if (!folder || !Array.isArray(folder.children)) {
+                SoundManager.play('stop');
+                return;
+            }
+
+            let name = 'New Folder';
+            while (folder.children.some(item => item.name.toLowerCase() === name.toLowerCase())) {
+                newFolderIndex += 1;
+                name = `New Folder (${newFolderIndex})`;
+            }
+
+            const newId = `docs-folder-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+            folder.children.unshift({
+                id: newId,
+                name,
+                kind: 'folder',
+                icon: iconSet.folder,
+                modified: new Date().toLocaleString('en-US', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                }),
+                children: []
+            });
+
+            reindex();
+            selectedItemId = newId;
+            renderAll();
+            SoundManager.play('open');
+        };
+
+        const deleteSelected = () => {
+            const folder = getCurrentFolder();
+            if (!folder || !selectedItemId) {
+                SoundManager.play('stop');
+                return;
+            }
+
+            const index = folder.children.findIndex(item => item.id === selectedItemId);
+            if (index < 0) {
+                SoundManager.play('stop');
+                return;
+            }
+
+            folder.children.splice(index, 1);
+            selectedItemId = '';
+            reindex();
+            renderAll();
+            SoundManager.play('recycle');
+        };
+
+        const moveSelection = (direction) => {
+            const items = getFolderItems();
+            if (!items.length) return;
+
+            let index = items.findIndex(item => item.id === selectedItemId);
+            if (index < 0) {
+                index = direction > 0 ? -1 : 1;
+            }
+
+            index = Math.max(0, Math.min(items.length - 1, index + direction));
+            selectedItemId = items[index].id;
+            renderAll();
+        };
+
+        const handleAction = (action) => {
+            if (!action) return;
+
+            if (action === 'back') {
+                if (historyIndex > 0) {
+                    historyIndex -= 1;
+                    navigateToFolder(history[historyIndex], false);
+                    SoundManager.play('click');
+                } else {
+                    SoundManager.play('stop');
+                }
+                return;
+            }
+
+            if (action === 'forward') {
+                if (historyIndex < history.length - 1) {
+                    historyIndex += 1;
+                    navigateToFolder(history[historyIndex], false);
+                    SoundManager.play('click');
+                } else {
+                    SoundManager.play('stop');
+                }
+                return;
+            }
+
+            if (action === 'up') {
+                const current = getCurrentFolder();
+                if (current && current.parentId) {
+                    navigateToFolder(current.parentId, true);
+                    SoundManager.play('click');
+                } else {
+                    SoundManager.play('stop');
+                }
+                return;
+            }
+
+            if (action === 'new-folder') {
+                createFolder();
+                return;
+            }
+
+            if (action === 'delete') {
+                deleteSelected();
+                return;
+            }
+
+            if (action === 'open-selected') {
+                openItem(getSelectedItem());
+            }
+        };
+
+        root.addEventListener('click', (event) => {
+            const actionButton = event.target.closest('button[data-docs-action]');
+            if (actionButton) {
+                event.preventDefault();
+                handleAction(actionButton.dataset.docsAction);
+                return;
+            }
+
+            const placeButton = event.target.closest('button[data-docs-place-id]');
+            if (placeButton) {
+                event.preventDefault();
+                navigateToFolder(placeButton.dataset.docsPlaceId, true);
+                SoundManager.play('click');
+                return;
+            }
+
+            const appButton = event.target.closest('button[data-docs-open-app]');
+            if (appButton) {
+                event.preventDefault();
+                const appId = appButton.dataset.docsOpenApp || '';
+                if (appId) {
+                    this.open(appId);
+                    SoundManager.play('open');
+                }
+                return;
+            }
+
+            const row = event.target.closest('[data-docs-item-id]');
+            if (row) {
+                const itemId = row.dataset.docsItemId || '';
+                selectItem(itemId);
+                SoundManager.play('click');
+                return;
+            }
+
+            if (event.target === itemsEl) {
+                selectItem('');
+            }
+        });
+
+        root.addEventListener('dblclick', (event) => {
+            const row = event.target.closest('[data-docs-item-id]');
+            if (!row) return;
+            const itemId = row.dataset.docsItemId || '';
+            if (!itemId) return;
+            openItem(getNode(itemId));
+        });
+
+        itemsEl.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                moveSelection(1);
+                return;
+            }
+
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                moveSelection(-1);
+                return;
+            }
+
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                openItem(getSelectedItem());
+                return;
+            }
+
+            if (event.key === 'Delete') {
+                event.preventDefault();
+                deleteSelected();
+                return;
+            }
+
+            if (event.key === 'Backspace') {
+                event.preventDefault();
+                handleAction('up');
+            }
+        });
+
+        itemsEl.addEventListener('mousedown', () => {
+            itemsEl.focus();
+        });
+
+        searchInput.addEventListener('input', () => {
+            searchQuery = searchInput.value.trim().toLowerCase();
+            if (selectedItemId && !getFolderItems().some(item => item.id === selectedItemId)) {
+                selectedItemId = '';
+            }
+            renderAll();
+        });
+
+        searchInput.addEventListener('keydown', event => {
+            event.stopPropagation();
+        });
+
+        viewSelect.addEventListener('change', () => {
+            viewMode = viewSelect.value === 'list' ? 'list' : 'details';
+            renderAll();
+            SoundManager.play('click');
+        });
+
+        renderAll();
     },
 
     initControlPanel(win) {
@@ -910,6 +1821,332 @@ const WindowManager = {
                 }
             });
         });
+    },
+
+    initSpotify(win) {
+        const root = win.querySelector('[data-spotify-app]');
+        if (!root) return;
+
+        const app = AppsRegistry.getApp('spotify');
+        if (!app || !Array.isArray(app.tracks) || !app.tracks.length) return;
+
+        const tracks = app.tracks;
+        const audio = root.querySelector('[data-spotify-audio]');
+        const progress = root.querySelector('[data-spotify-progress]');
+        const currentTimeEl = root.querySelector('[data-spotify-current]');
+        const durationEl = root.querySelector('[data-spotify-duration]');
+        const statusEl = root.querySelector('[data-spotify-status]');
+        const nowTitleEl = root.querySelector('[data-spotify-now-title]');
+        const nowArtistEl = root.querySelector('[data-spotify-now-artist]');
+        const spotifyVolumeSlider = root.querySelector('[data-spotify-volume]');
+        const systemVolumeSlider = root.querySelector('[data-system-volume]');
+        const playBtn = root.querySelector('[data-spotify-action="play"]');
+        const shuffleBtn = root.querySelector('[data-spotify-action="shuffle"]');
+        const repeatBtn = root.querySelector('[data-spotify-action="repeat"]');
+        const trackButtons = Array.from(root.querySelectorAll('[data-spotify-track-index]'));
+
+        if (!audio || !progress || !currentTimeEl || !durationEl || !statusEl || !nowTitleEl || !nowArtistEl || !playBtn) {
+            return;
+        }
+
+        let currentIndex = 0;
+        let shuffle = false;
+        let repeat = false;
+
+        const formatTime = (seconds) => {
+            if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+            const total = Math.floor(seconds);
+            const mins = Math.floor(total / 60);
+            const secs = total % 60;
+            return `${mins}:${String(secs).padStart(2, '0')}`;
+        };
+
+        const setStatus = (text) => {
+            statusEl.textContent = text;
+        };
+
+        const syncTrackSelection = () => {
+            trackButtons.forEach((button, index) => {
+                button.classList.toggle('active', index === currentIndex);
+            });
+        };
+
+        const syncPlayButton = () => {
+            playBtn.textContent = audio.paused ? 'Play' : 'Pause';
+        };
+
+        const syncToggleButtons = () => {
+            if (shuffleBtn) {
+                shuffleBtn.textContent = shuffle ? 'Shuffle On' : 'Shuffle Off';
+                shuffleBtn.classList.toggle('active', shuffle);
+            }
+            if (repeatBtn) {
+                repeatBtn.textContent = repeat ? 'Repeat On' : 'Repeat Off';
+                repeatBtn.classList.toggle('active', repeat);
+            }
+        };
+
+        const syncProgress = () => {
+            const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+            const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+            progress.max = duration > 0 ? String(duration) : '100';
+            progress.value = String(Math.min(current, duration || 100));
+            currentTimeEl.textContent = formatTime(current);
+            durationEl.textContent = formatTime(duration);
+        };
+
+        const loadTrack = (index, autoplay = false) => {
+            currentIndex = (index + tracks.length) % tracks.length;
+            const track = tracks[currentIndex];
+            audio.src = track.src;
+            nowTitleEl.textContent = track.title;
+            nowArtistEl.textContent = track.artist;
+            setStatus(`Loaded: ${track.title} - ${track.artist}`);
+            syncTrackSelection();
+            syncProgress();
+
+            if (autoplay) {
+                const playPromise = audio.play();
+                if (playPromise && typeof playPromise.then === 'function') {
+                    playPromise
+                        .then(() => setStatus(`Playing: ${track.title}`))
+                        .catch(() => setStatus('Playback blocked until user interaction.'));
+                }
+            }
+        };
+
+        const playNext = () => {
+            if (shuffle) {
+                const randomIndex = Math.floor(Math.random() * tracks.length);
+                loadTrack(randomIndex, true);
+                return;
+            }
+            loadTrack(currentIndex + 1, true);
+        };
+
+        const playPrev = () => {
+            if (audio.currentTime > 3) {
+                audio.currentTime = 0;
+                syncProgress();
+                return;
+            }
+            loadTrack(currentIndex - 1, true);
+        };
+
+        root.querySelectorAll('[data-spotify-action]').forEach(button => {
+            button.addEventListener('click', () => {
+                const action = button.dataset.spotifyAction;
+
+                if (action === 'play') {
+                    if (audio.paused) {
+                        if (!audio.src) {
+                            loadTrack(currentIndex, true);
+                        } else {
+                            audio.play().catch(() => {
+                                setStatus('Playback blocked until user interaction.');
+                            });
+                        }
+                    } else {
+                        audio.pause();
+                    }
+                    return;
+                }
+
+                if (action === 'next') {
+                    playNext();
+                    return;
+                }
+
+                if (action === 'prev') {
+                    playPrev();
+                    return;
+                }
+
+                if (action === 'shuffle') {
+                    shuffle = !shuffle;
+                    syncToggleButtons();
+                    return;
+                }
+
+                if (action === 'repeat') {
+                    repeat = !repeat;
+                    syncToggleButtons();
+                }
+            });
+        });
+
+        trackButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const index = Number.parseInt(button.dataset.spotifyTrackIndex, 10);
+                if (Number.isFinite(index)) {
+                    loadTrack(index, true);
+                }
+            });
+        });
+
+        progress.addEventListener('input', () => {
+            const nextTime = Number.parseFloat(progress.value);
+            if (Number.isFinite(nextTime)) {
+                audio.currentTime = nextTime;
+                syncProgress();
+            }
+        });
+
+        if (spotifyVolumeSlider) {
+            audio.volume = Number.parseInt(spotifyVolumeSlider.value, 10) / 100;
+            spotifyVolumeSlider.addEventListener('input', () => {
+                const volume = Number.parseInt(spotifyVolumeSlider.value, 10) / 100;
+                audio.volume = Math.max(0, Math.min(1, volume));
+                setStatus(`Spotify volume: ${Math.round(audio.volume * 100)}%`);
+            });
+        } else {
+            audio.volume = 0.8;
+        }
+
+        if (systemVolumeSlider) {
+            systemVolumeSlider.value = String(Math.round(SoundManager.getMasterVolume() * 100));
+            systemVolumeSlider.addEventListener('input', () => {
+                const volume = Number.parseInt(systemVolumeSlider.value, 10) / 100;
+                SoundManager.setMasterVolume(volume);
+                setStatus(`Website volume: ${Math.round(Math.max(0, Math.min(1, volume)) * 100)}%`);
+            });
+        }
+
+        audio.addEventListener('loadedmetadata', syncProgress);
+        audio.addEventListener('timeupdate', syncProgress);
+        audio.addEventListener('play', () => {
+            syncPlayButton();
+            setStatus(`Playing: ${tracks[currentIndex].title}`);
+        });
+        audio.addEventListener('pause', () => {
+            syncPlayButton();
+            if (audio.currentTime < (audio.duration || Number.MAX_SAFE_INTEGER)) {
+                setStatus('Paused');
+            }
+        });
+        audio.addEventListener('ended', () => {
+            if (repeat) {
+                audio.currentTime = 0;
+                audio.play().catch(() => {});
+                return;
+            }
+            playNext();
+        });
+        audio.addEventListener('error', () => {
+            setStatus('Track failed to load. Please try another track.');
+        });
+
+        syncToggleButtons();
+        syncPlayButton();
+        loadTrack(0, false);
+    },
+
+    initRecycleBin(win) {
+        const root = win.querySelector('[data-recycle-root]');
+        if (!root) return;
+
+        if (root.dataset.bound !== '1') {
+            root.dataset.bound = '1';
+
+            root.addEventListener('click', (event) => {
+                const actionButton = event.target.closest('[data-recycle-action]');
+                if (actionButton) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const action = actionButton.dataset.recycleAction;
+                    const actionAppId = actionButton.dataset.appId || '';
+                    const selectedAppId = root.dataset.selectedAppId || '';
+
+                    if (action === 'restore-selected') {
+                        if (!selectedAppId || !this.restoreRecycleItem(selectedAppId)) {
+                            SoundManager.play('stop');
+                        }
+                    } else if (action === 'restore-one') {
+                        if (!actionAppId || !this.restoreRecycleItem(actionAppId)) {
+                            SoundManager.play('stop');
+                        }
+                    } else if (action === 'restore-all') {
+                        this.restoreAllRecycleItems();
+                    } else if (action === 'empty') {
+                        this.emptyRecycleBin();
+                    }
+                    return;
+                }
+
+                const row = event.target.closest('.recycle-item');
+                if (!row) return;
+                root.dataset.selectedAppId = row.dataset.appId || '';
+                this.renderRecycleBinContents(win);
+                SoundManager.play('click');
+            });
+
+            root.addEventListener('dblclick', (event) => {
+                const row = event.target.closest('.recycle-item');
+                if (!row) return;
+                const appId = row.dataset.appId || '';
+                if (!appId || !this.restoreRecycleItem(appId)) {
+                    SoundManager.play('stop');
+                }
+            });
+        }
+
+        this.renderRecycleBinContents(win);
+    },
+
+    renderRecycleBinContents(winOrElement) {
+        const winEl = winOrElement && winOrElement.el ? winOrElement.el : winOrElement;
+        if (!winEl) return;
+
+        const root = winEl.querySelector('[data-recycle-root]');
+        if (!root) return;
+
+        const items = [...this.recycledDesktopItems].sort((a, b) => b.deletedAt - a.deletedAt);
+        let selectedAppId = root.dataset.selectedAppId || '';
+
+        if (!items.length) {
+            selectedAppId = '';
+        } else if (!items.some(item => item.appId === selectedAppId)) {
+            selectedAppId = items[0].appId;
+        }
+
+        root.dataset.selectedAppId = selectedAppId;
+
+        if (!items.length) {
+            root.innerHTML = `
+                <div class="recycle-toolbar">
+                    <button type="button" class="recycle-action-btn" data-recycle-action="restore-selected" disabled>Restore</button>
+                    <button type="button" class="recycle-action-btn" data-recycle-action="restore-all" disabled>Restore All</button>
+                    <button type="button" class="recycle-action-btn" data-recycle-action="empty" disabled>Empty Recycle Bin</button>
+                </div>
+                <div class="recycle-empty">
+                    <img src="${AppsRegistry.apps.recycle.icon}" alt="">
+                    <span>Recycle Bin is empty.</span>
+                </div>
+            `;
+            return;
+        }
+
+        const rows = items.map(item => `
+            <div class="recycle-item ${item.appId === selectedAppId ? 'selected' : ''}" data-app-id="${item.appId}">
+                <img class="recycle-item-icon" src="${item.icon}" alt="">
+                <div class="recycle-item-meta">
+                    <div class="recycle-item-name">${item.name}</div>
+                    <div class="recycle-item-sub">Deleted ${new Date(item.deletedAt).toLocaleString()}</div>
+                </div>
+                <button type="button" class="recycle-item-restore" data-recycle-action="restore-one" data-app-id="${item.appId}">
+                    Restore
+                </button>
+            </div>
+        `).join('');
+
+        root.innerHTML = `
+            <div class="recycle-toolbar">
+                <button type="button" class="recycle-action-btn" data-recycle-action="restore-selected">Restore</button>
+                <button type="button" class="recycle-action-btn" data-recycle-action="restore-all">Restore All</button>
+                <button type="button" class="recycle-action-btn" data-recycle-action="empty">Empty Recycle Bin</button>
+            </div>
+            <div class="recycle-list">${rows}</div>
+        `;
     },
 
     initNotepad(win, id) {
@@ -1359,6 +2596,15 @@ const WindowManager = {
     close(id, playSound = true) {
         const win = this.windows[id];
         if (!win) return;
+
+        if (win.appId === 'spotify') {
+            const spotifyAudio = win.el.querySelector('[data-spotify-audio]');
+            if (spotifyAudio) {
+                spotifyAudio.pause();
+                spotifyAudio.removeAttribute('src');
+                spotifyAudio.load();
+            }
+        }
 
         win.closed = true;
         win.el.remove();
