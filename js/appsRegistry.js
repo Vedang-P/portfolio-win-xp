@@ -876,18 +876,28 @@ Open the Contact app for direct links.`
     generateIEHTML(app) {
         return `
             <div class="ie-app">
+                <div class="ie-menubar">
+                    <span>File</span>
+                    <span>Edit</span>
+                    <span>View</span>
+                    <span>Favorites</span>
+                    <span>Tools</span>
+                    <span>Help</span>
+                </div>
                 <div class="ie-toolbar">
                     <button class="ie-nav-btn" type="button" aria-label="Back">&#8592;</button>
+                    <span class="ie-nav-label">Back</span>
                     <button class="ie-nav-btn" type="button" aria-label="Forward">&#8594;</button>
+                    <span class="ie-nav-label">Forward</span>
                     <button class="ie-nav-btn" type="button" aria-label="Refresh">&#8635;</button>
+                    <div class="ie-toolbar-divider" aria-hidden="true"></div>
                     <span class="ie-address-label">Address</span>
                     <input class="ie-address-bar" type="text" value="${app.homepage}" readonly>
-                    <a class="ie-go-btn" href="${app.homepage}" target="_blank" rel="noreferrer">Go</a>
+                    <a class="ie-go-btn" href="${app.homepage}" target="_blank" rel="noreferrer noopener" aria-label="Go">&#8594;</a>
                 </div>
                 <div class="ie-frame-wrap">
                     <iframe class="ie-frame" src="${app.homepage}" title="Google"></iframe>
                 </div>
-                <div class="ie-status">Done</div>
             </div>
         `;
     },
