@@ -2137,11 +2137,11 @@ X: x.com/vedangstwt`
         let seeking = false;
         let destroyed = false;
         const MAX_BLOCK_RETRIES = 8;
+        let quickBlockStreak = 0;
         let activeSource = {
             type: 'quick',
             query: tracks[0]?.query || '',
-            retries: 0,
-            attemptedFallback: false
+            retries: 0
         };
 
         const setStatus = (text) => {
@@ -2278,8 +2278,7 @@ X: x.com/vedangstwt`
             activeSource = {
                 type: 'quick',
                 query: track.query || `${track.title} ${track.artist}`,
-                retries: 0,
-                attemptedFallback: false
+                retries: 0
             };
             setNowPlaying(track.title, track.artist);
             setStatus(`Loading: ${track.title} - ${track.artist}`);
@@ -2374,8 +2373,7 @@ X: x.com/vedangstwt`
             activeSource = {
                 type: 'search',
                 query,
-                retries: 0,
-                attemptedFallback: true
+                retries: 0
             };
 
             try {
@@ -2553,6 +2551,7 @@ X: x.com/vedangstwt`
 
                             const ytState = YT.PlayerState;
                             if (event.data === ytState.PLAYING) {
+                                quickBlockStreak = 0;
                                 activeSource.retries = 0;
                                 syncVideoMeta();
                                 setStatus(`Playing: ${nowTitleEl.textContent}`);
@@ -2582,26 +2581,7 @@ X: x.com/vedangstwt`
                             const errorCode = Number(event?.data);
 
                             if (
-                                activeSource.type === 'quick' &&
-                                !activeSource.attemptedFallback &&
-                                activeSource.query
-                            ) {
-                                activeSource.type = 'quick-fallback';
-                                activeSource.attemptedFallback = true;
-                                activeSource.retries = 0;
-                                mode = 'search';
-                                setTrackSelection(-1);
-                                setStatus('Primary upload blocked. Trying alternate results...');
-                                try {
-                                    player.loadPlaylist({ listType: 'search', list: activeSource.query, index: 0 });
-                                    return;
-                                } catch (error) {
-                                    // fall through to generic handling
-                                }
-                            }
-
-                            if (
-                                (activeSource.type === 'search' || activeSource.type === 'quick-fallback') &&
+                                activeSource.type === 'search' &&
                                 activeSource.retries < MAX_BLOCK_RETRIES
                             ) {
                                 activeSource.retries += 1;
@@ -2618,9 +2598,19 @@ X: x.com/vedangstwt`
                                 return;
                             }
 
-                            if (activeSource.type === 'quick' || activeSource.type === 'quick-fallback') {
-                                setStatus('Track unavailable in embeds. Loading next song...');
-                                playNext();
+                            if (activeSource.type === 'quick') {
+                                quickBlockStreak += 1;
+                                if (quickBlockStreak < tracks.length) {
+                                    setStatus(`Track blocked (${errorCode || '?'}). Trying next quick pick...`);
+                                    window.setTimeout(() => {
+                                        if (destroyed || !player) return;
+                                        playNext();
+                                    }, 250);
+                                    return;
+                                }
+
+                                quickBlockStreak = 0;
+                                setStatus('Quick picks are blocked in this region/browser. Use Open in Browser or search.');
                             } else {
                                 setStatus('Could not find a playable embed for this search. Try another query.');
                             }

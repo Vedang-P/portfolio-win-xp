@@ -158,31 +158,37 @@ Open the Contact app for direct links.`
                 {
                     title: 'Blinding Lights',
                     artist: 'The Weeknd',
+                    videoId: '4NRXx6U8ABQ',
                     query: 'Blinding Lights The Weeknd'
                 },
                 {
                     title: 'As It Was',
                     artist: 'Harry Styles',
+                    videoId: 'H5v3kku4y6Q',
                     query: 'As It Was Harry Styles'
                 },
                 {
                     title: 'Levitating',
                     artist: 'Dua Lipa',
+                    videoId: 'TUVcZfQe-Kw',
                     query: 'Levitating Dua Lipa'
                 },
                 {
                     title: 'Shape of You',
                     artist: 'Ed Sheeran',
+                    videoId: 'JGwWNGJdvx8',
                     query: 'Shape of You Ed Sheeran'
                 },
                 {
                     title: 'Bad Guy',
                     artist: 'Billie Eilish',
+                    videoId: 'DyDfgMOUjCI',
                     query: 'Bad Guy Billie Eilish'
                 },
                 {
                     title: 'Starboy',
                     artist: 'The Weeknd',
+                    videoId: '34Na4j8AVgA',
                     query: 'Starboy The Weeknd'
                 }
             ]
