@@ -425,11 +425,27 @@ Open the Contact app for direct links.`
 
         return `
             <div class="control-panel control-shell" data-control-root>
-                <div class="control-header">
-                    <img class="control-header-icon" src="${this.apps.control.icon}" alt="">
-                    <div class="control-header-copy">
-                        <div class="control-header-title">Control Panel</div>
-                        <div class="control-header-subtitle">Pick a category to adjust your XP desktop experience.</div>
+                <div class="control-menubar">
+                    <span>File</span>
+                    <span>Edit</span>
+                    <span>View</span>
+                    <span>Tools</span>
+                    <span>Help</span>
+                </div>
+
+                <div class="control-toolbar">
+                    <button type="button" class="control-arrow-btn" data-control-action="show-desktop" title="Show Desktop">&#8592;</button>
+                    <button type="button" class="control-arrow-btn" data-control-action="reset-icons" title="Reset Icons">&#8594;</button>
+                    <div class="control-toolbar-divider" aria-hidden="true"></div>
+                    <button type="button" class="control-arrow-btn control-arrow-btn-go" data-control-action="play-test-sound" title="Test Sound">&#8594;</button>
+                    <span class="control-toolbar-label">Category View</span>
+                </div>
+
+                <div class="control-address-row">
+                    <span class="control-address-label">Address</span>
+                    <div class="control-address-value">
+                        <img src="${this.apps.control.icon}" alt="">
+                        <span>Control Panel</span>
                     </div>
                 </div>
 

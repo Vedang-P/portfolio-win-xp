@@ -1788,65 +1788,147 @@
     font-family: Tahoma, Arial, sans-serif;
 }
 
-.control-header {
-    min-height: 62px;
-    padding: 10px 12px;
-    border-bottom: 1px solid #b8cbe8;
-    background: linear-gradient(180deg, #edf6ff 0%, #d7e9ff 100%);
+.control-menubar {
+    height: 32px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 22px;
+    padding: 0 12px;
+    background: #ece9d8;
+    border-bottom: 1px solid #bdb8a6;
+    font-size: 13px;
+    color: #1f1f1f;
 }
 
-.control-header-icon {
-    width: 34px;
-    height: 34px;
-    flex-shrink: 0;
+.control-menubar span {
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 6px;
 }
 
-.control-header-title {
-    font-size: 20px;
-    font-weight: bold;
-    color: #19478d;
-    line-height: 1.1;
+.control-menubar span:hover {
+    background: #316ac5;
+    color: #fff;
 }
 
-.control-header-subtitle {
-    margin-top: 2px;
+.control-toolbar {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    background: #ece9d8;
+    border-bottom: 1px solid #c8c5b4;
+}
+
+.control-arrow-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid #2f7c21;
+    background: linear-gradient(180deg, #73d464 0%, #2daf2d 100%);
+    color: #fff;
+    font-size: 21px;
+    line-height: 1;
+    padding: 0;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.control-arrow-btn:hover {
+    background: linear-gradient(180deg, #82dd73 0%, #36b938 100%);
+}
+
+.control-arrow-btn:active {
+    background: linear-gradient(180deg, #2fa52f 0%, #2a922a 100%);
+}
+
+.control-arrow-btn-go {
+    width: 36px;
+    font-size: 24px;
+}
+
+.control-toolbar-divider {
+    width: 1px;
+    height: 60%;
+    background: #b7b29c;
+    margin: 0 6px;
+}
+
+.control-toolbar-label {
+    font-size: 13px;
+    color: #2a2a2a;
+}
+
+.control-address-row {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    background: #efefef;
+    border-bottom: 1px solid #c7c7c7;
+}
+
+.control-address-label {
+    width: 90px;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #e3dfcf;
+    border-right: 1px solid #c8c4b6;
+    color: #2b2b2b;
     font-size: 12px;
-    color: #2f5f9f;
+}
+
+.control-address-value {
+    flex: 1;
+    height: 28px;
+    margin: 0 8px;
+    border: 1px solid #b6b6b6;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 9px;
+    font-size: 12px;
+}
+
+.control-address-value img {
+    width: 19px;
+    height: 19px;
 }
 
 .control-layout {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 290px 1fr;
 }
 
 .control-sidebar {
-    background: linear-gradient(180deg, #6f8cf4 0%, #5568d3 100%);
-    border-right: 1px solid #8898de;
-    padding: 10px 9px;
+    background: linear-gradient(180deg, #6f8cf4 0%, #5567d3 100%);
+    border-right: 1px solid #8e9de8;
+    padding: 10px 10px 12px;
     overflow: auto;
 }
 
 .control-side-group {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     border-radius: 8px 8px 0 0;
     overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
 }
 
 .control-side-title {
-    min-height: 30px;
+    min-height: 40px;
     background: linear-gradient(180deg, #3774f8 0%, #1c4fcf 100%);
     color: #fff;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: bold;
     display: flex;
     align-items: center;
-    padding: 0 10px;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+    padding: 0 12px;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 
 .control-side-link,
@@ -1857,7 +1939,7 @@
     color: #1f57ca;
     font-size: 12px;
     text-align: left;
-    padding: 6px 9px;
+    padding: 8px 10px;
     display: block;
 }
 
@@ -1872,75 +1954,78 @@
 
 .control-status-line {
     color: #213968;
+    font-size: 12px;
 }
 
 .control-main {
     min-width: 0;
     background: #f5f7fb;
-    padding: 12px;
+    padding: 8px 13px 14px;
     overflow: auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 10px;
-    align-content: start;
 }
 
 .control-card {
-    border: 1px solid #c7d6ef;
-    background: #fff;
-    box-shadow: inset 0 1px 0 #fff;
-    padding: 10px;
+    border: 0;
+    background: transparent;
+    padding: 0;
 }
 
 .control-card-title {
+    margin: 0;
+    padding: 1px 2px 5px;
     font-size: 13px;
     font-weight: bold;
-    color: #1e4b8f;
+    color: #111;
+    border-bottom: 3px solid #9fbff4;
 }
 
 .control-card-subtitle {
-    margin-top: 2px;
+    margin-top: 7px;
+    margin-bottom: 2px;
     font-size: 11px;
-    color: #486ea7;
+    color: #3e5f8f;
 }
 
 .control-row {
-    margin-top: 8px;
+    margin-top: 6px;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
 }
 
 .control-chip {
-    border: 1px solid #8aa9d8;
-    background: linear-gradient(180deg, #ffffff, #e8f1ff);
-    color: #1a3f7a;
-    font-size: 12px;
-    padding: 5px 10px;
+    border: 1px solid #7f9db9;
+    background: linear-gradient(180deg, #fff, #e4edf7);
+    color: #1f3d73;
+    font-size: 11px;
+    padding: 3px 10px;
     cursor: pointer;
-    min-height: 28px;
+    min-height: 24px;
 }
 
 .control-chip:hover {
-    background: linear-gradient(180deg, #fff, #d9e8ff);
+    background: linear-gradient(180deg, #fffdf5, #f4e5bb);
 }
 
 .control-chip.active {
     background: #316ac5;
-    border-color: #1e4c96;
+    border-color: #24508f;
     color: #fff;
 }
 
 .control-wallpaper-grid {
     margin-top: 8px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 8px;
 }
 
 .control-wallpaper-card {
-    border: 1px solid #b2c8ea;
-    background: #f8fbff;
+    border: 1px solid #7f9db9;
+    background: #eaf2fe;
     padding: 6px;
     display: flex;
     flex-direction: column;
@@ -1951,14 +2036,14 @@
 }
 
 .control-wallpaper-card:hover {
-    border-color: #7ea4df;
-    background: #eef5ff;
+    border-color: #6f90c3;
+    background: #dfeafc;
 }
 
 .control-wallpaper-card.active {
-    border-color: #1e4c96;
-    box-shadow: inset 0 0 0 1px #6fa0ec;
-    background: #e6f0ff;
+    border-color: #24508f;
+    box-shadow: inset 0 0 0 1px #9ec3f6;
+    background: #d0e2ff;
 }
 
 .control-wallpaper-preview {
@@ -1973,7 +2058,7 @@
 
 .control-wallpaper-label {
     font-size: 11px;
-    color: #234f90;
+    color: #1e3f71;
     font-weight: bold;
 }
 
@@ -1997,17 +2082,17 @@
 }
 
 .control-shortcut-btn {
-    min-height: 30px;
-    border: 1px solid #8aa9d8;
-    background: linear-gradient(180deg, #fff, #e8f1ff);
-    color: #1a3f7a;
+    min-height: 28px;
+    border: 1px solid #7f9db9;
+    background: linear-gradient(180deg, #fff, #e4edf7);
+    color: #1f3d73;
     font-size: 11px;
     font-weight: bold;
     cursor: pointer;
 }
 
 .control-shortcut-btn:hover {
-    background: linear-gradient(180deg, #fff, #d9e8ff);
+    background: linear-gradient(180deg, #fffdf5, #f4e5bb);
 }
 
 .paint-app {
@@ -2350,6 +2435,20 @@
 
     .cmd-terminal {
         font-size: 12px;
+    }
+
+    .control-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .control-sidebar {
+        max-height: 220px;
+        border-right: 0;
+        border-bottom: 1px solid #8e9de8;
+    }
+
+    .control-shortcuts {
+        grid-template-columns: 1fr;
     }
 
     .paint-workspace {
