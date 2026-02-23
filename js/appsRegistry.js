@@ -1,60 +1,49 @@
 const AppsRegistry = {
     profile: {
         displayName: 'Vedang',
-        role: 'Frontend Engineer',
-        location: 'United States',
-        summary: `I build nostalgic, fast, and thoughtful web products.
-This portfolio runs as a Windows XP inspired desktop shell with custom interactions, retro visuals, and personal projects.`,
+        role: '',
+        location: '',
+        summary: `.`,
         skills: [
-            'HTML, CSS, JavaScript (ES6+)',
-            'React and TypeScript',
-            'Design Systems and Accessibility',
-            'Performance and Web Vitals',
-            'Node.js and API Integration'
+            '',
+            '',
+            '',
+            '',
+            ''
         ],
         resume: {
-            title: 'Resume.txt',
+            title: '',
             content: `VEDANG
-Frontend Engineer
 
-Experience
-- Built and shipped responsive web applications with modern frontend stacks.
-- Led UI polish and component architecture across product surfaces.
-- Collaborated closely with design and backend teams.
 
-Highlights
-- Strong focus on interaction quality and performance.
-- Passion for retro interfaces and modern usability.
 
-Education
-- B.S. in Computer Science
 
 Open the Contact app for direct links.`
         },
         projects: [
             {
-                name: 'XP Portfolio Desktop',
-                desc: 'Interactive Windows XP style personal site.',
-                stack: 'HTML, CSS, JavaScript',
+                name: '',
+                desc: '',
+                stack: '',
                 link: ''
             },
             {
-                name: 'Realtime Chat Client',
-                desc: 'Socket based messaging experience with presence.',
-                stack: 'React, Node.js, Socket.IO',
-                link: 'https://github.com'
+                name: '',
+                desc: '.',
+                stack: '',
+                link: ''
             },
             {
-                name: 'Storefront UI',
-                desc: 'Conversion focused e-commerce frontend.',
-                stack: 'React, TypeScript',
-                link: 'https://github.com'
+                name: '',
+                desc: '.',
+                stack: '',
+                link: ''
             },
             {
-                name: 'Visual Analytics Dashboard',
-                desc: 'Data-heavy dashboard with custom charts.',
-                stack: 'Vue, D3',
-                link: 'https://github.com'
+                name: '',
+                desc: '.',
+                stack: '',
+                link: ''
             }
         ],
         contacts: [
