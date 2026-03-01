@@ -83,7 +83,7 @@ Open the Contact app for direct links.`
             icon: 'assets/icons/Windows XP Icons/0115 - Word Doc.ico',
             width: 600,
             height: 450,
-            externalUrl: 'https://x.com/vedangstwt'
+            externalUrl: 'https://drive.google.com/file/d/11FwOpNWYdeqgq1Qvu_1DWlvqXRDnmrpr/view?usp=sharing'
         },
         contact: {
             id: 'contact',

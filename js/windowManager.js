@@ -1161,7 +1161,7 @@ X: x.com/vedangstwt`
                     icon: iconSet.ie,
                     size: '1 KB',
                     modified: formatDate(2026, 2, 22, 2, 8),
-                    open: { type: 'external', url: 'https://x.com/vedangstwt' }
+                    open: { type: 'external', url: 'https://drive.google.com/file/d/11FwOpNWYdeqgq1Qvu_1DWlvqXRDnmrpr/view?usp=sharing' }
                 },
                 {
                     id: 'docs-github-link',
@@ -2080,6 +2080,10 @@ X: x.com/vedangstwt`
         const nowTitleEl = root.querySelector('[data-spotify-now-title]');
         const nowArtistEl = root.querySelector('[data-spotify-now-artist]');
         const volumeSlider = root.querySelector('[data-spotify-volume]');
+        const searchBtn = root.querySelector('.spotify-search-btn');
+        const progressRow = root.querySelector('.spotify-progress-row');
+        const controlsRow = root.querySelector('.spotify-controls');
+        const volumeRow = root.querySelector('.spotify-volume-row');
         const playBtn = root.querySelector('[data-spotify-action="play"]');
         const shuffleBtn = root.querySelector('[data-spotify-action="shuffle"]');
         const repeatBtn = root.querySelector('[data-spotify-action="repeat"]');
@@ -2219,6 +2223,111 @@ X: x.com/vedangstwt`
             recentSearches = [clean, ...recentSearches.filter((entry) => entry.toLowerCase() !== clean.toLowerCase())].slice(0, 8);
             renderRecentSearches();
         };
+
+        const isMobileSpotify = window.matchMedia('(max-width: 980px)').matches ||
+            (window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 1100);
+
+        if (isMobileSpotify) {
+            root.classList.add('spotify-mobile-mode');
+
+            const mobileFrame = document.createElement('iframe');
+            mobileFrame.className = 'spotify-mobile-frame';
+            mobileFrame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+            mobileFrame.setAttribute('allowfullscreen', '');
+            mobileFrame.setAttribute('loading', 'lazy');
+            mobileFrame.setAttribute('title', 'Spotify Mobile Player');
+            playerHost.textContent = '';
+            playerHost.appendChild(mobileFrame);
+
+            const makeVideoUrl = (videoId, autoplay = true) => (
+                `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=${autoplay ? '1' : '0'}&rel=0&modestbranding=1&playsinline=1`
+            );
+            const makeSearchUrl = (query, autoplay = true) => (
+                `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=${autoplay ? '1' : '0'}&rel=0&modestbranding=1&playsinline=1`
+            );
+            const navigateFrame = (url, statusText) => {
+                mobileFrame.src = url;
+                setStatus(statusText);
+            };
+            const playMobileTrack = (index, autoplay = true) => {
+                currentIndex = (index + tracks.length) % tracks.length;
+                setTrackSelection(currentIndex);
+                const track = tracks[currentIndex];
+                setNowPlaying(track.title, track.artist);
+                const url = track.videoId ? makeVideoUrl(track.videoId, autoplay) : makeSearchUrl(track.query, autoplay);
+                navigateFrame(url, `Loaded: ${track.title}`);
+            };
+            const runMobileSearch = (rawQuery) => {
+                const query = rawQuery.trim();
+                if (!query) {
+                    setStatus('Type a song or artist, then press Play.');
+                    SoundManager.play('stop');
+                    return;
+                }
+                mode = 'search';
+                setTrackSelection(-1);
+                setNowPlaying(query, 'Search Results');
+                addRecentSearch(query);
+                navigateFrame(makeSearchUrl(query, true), `Searching: ${query}...`);
+            };
+            const submitSearch = () => {
+                runMobileSearch(searchInput.value);
+            };
+
+            renderTrackList();
+            renderRecentSearches();
+            setTrackSelection(0);
+            setNowPlaying(tracks[0].title, tracks[0].artist);
+            playMobileTrack(0, false);
+            setStatus('Mobile mode active. Use search or quick picks.');
+
+            trackListEl.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-spotify-track-index]');
+                if (!button) return;
+                const index = Number.parseInt(button.dataset.spotifyTrackIndex, 10);
+                if (!Number.isFinite(index)) return;
+                mode = 'quick';
+                playMobileTrack(index, true);
+                SoundManager.play('click');
+            });
+
+            searchForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                submitSearch();
+                SoundManager.play('click');
+            });
+
+            if (searchBtn) {
+                searchBtn.addEventListener('touchend', (event) => {
+                    event.preventDefault();
+                    submitSearch();
+                    SoundManager.play('click');
+                }, { passive: false });
+            }
+
+            recentListEl.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-spotify-search-query]');
+                if (!button) return;
+                const query = button.dataset.spotifySearchQuery || '';
+                if (!query) return;
+                searchInput.value = query;
+                submitSearch();
+                SoundManager.play('click');
+            });
+
+            if (progressRow) progressRow.style.display = 'none';
+            if (controlsRow) controlsRow.style.display = 'none';
+            if (volumeRow) volumeRow.style.display = 'none';
+
+            const cleanup = () => {
+                if (destroyed) return;
+                destroyed = true;
+                mobileFrame.src = 'about:blank';
+                win.__spotifyCleanup = null;
+            };
+            win.__spotifyCleanup = cleanup;
+            return;
+        }
 
         const syncVideoMeta = () => {
             if (!player || mode !== 'search') return;
@@ -2400,6 +2509,13 @@ X: x.com/vedangstwt`
             event.preventDefault();
             runSearch(searchInput.value);
         });
+
+        if (searchBtn) {
+            searchBtn.addEventListener('touchend', (event) => {
+                event.preventDefault();
+                runSearch(searchInput.value);
+            }, { passive: false });
+        }
 
         recentListEl.addEventListener('click', (event) => {
             const button = event.target.closest('[data-spotify-search-query]');
