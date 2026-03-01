@@ -53,6 +53,7 @@
     border-radius: 7px 7px 0 0;
     border: 1px solid #2a70cb;
     border-bottom-color: #044ca8;
+    touch-action: none;
 }
 
 .window.inactive .window-titlebar {
@@ -2735,6 +2736,11 @@
 }
 
 @media (max-width: 760px) {
+    .window {
+        border-radius: 6px 6px 0 0;
+        padding: 1px 1px 2px;
+    }
+
     .window .window-titlebar {
         height: 24px;
     }

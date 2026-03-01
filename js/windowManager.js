@@ -46,6 +46,11 @@ const WindowManager = {
         window.addEventListener('resize', () => this.clampAllIconsToDesktop());
     },
 
+    isMobileUI() {
+        return window.matchMedia('(max-width: 980px)').matches ||
+            window.matchMedia('(pointer: coarse)').matches;
+    },
+
     setupDesktopInteraction() {
         const desktop = document.getElementById('desktop');
         const iconContainer = document.getElementById('desktop-icons');
@@ -62,6 +67,7 @@ const WindowManager = {
         });
 
         desktop.addEventListener('mousedown', (event) => {
+            if (this.isMobileUI()) return;
             if (event.button !== 0) return;
             if (event.target.closest('.desktop-icon')) return;
             if (event.target.closest('.window')) return;
@@ -787,6 +793,12 @@ const WindowManager = {
                     this.suppressIconOpen = '';
                     return;
                 }
+                if (this.isMobileUI()) {
+                    this.selectIcon(el);
+                    SoundManager.play('click');
+                    this.open(app.appId);
+                    return;
+                }
                 this.handleIconClick(el);
             });
 
@@ -826,16 +838,26 @@ const WindowManager = {
         const win = document.createElement('div');
         win.className = 'window active';
         win.dataset.windowId = id;
+        const mobileUI = this.isMobileUI();
 
         const desktopRect = document.getElementById('desktop').getBoundingClientRect();
-        const maxWidth = Math.max(260, desktopRect.width - 24);
-        const maxHeight = Math.max(200, desktopRect.height - 24);
-        const width = Math.min(app.width, maxWidth);
-        const height = Math.min(app.height, maxHeight);
+        const frameInset = mobileUI ? 8 : 24;
+        const maxWidth = Math.max(260, desktopRect.width - frameInset);
+        const maxHeight = Math.max(200, desktopRect.height - frameInset);
+        const width = mobileUI
+            ? Math.min(maxWidth, Math.max(300, desktopRect.width - 8))
+            : Math.min(app.width, maxWidth);
+        const height = mobileUI
+            ? Math.min(maxHeight, Math.max(220, desktopRect.height - 8))
+            : Math.min(app.height, maxHeight);
 
         const offset = Object.keys(this.windows).length;
-        const x = Math.max(0, Math.min(70 + (offset * 25) % 150, desktopRect.width - width));
-        const y = Math.max(0, Math.min(48 + (offset * 25) % 100, desktopRect.height - height));
+        const x = mobileUI
+            ? Math.max(0, Math.min(4, desktopRect.width - width))
+            : Math.max(0, Math.min(70 + (offset * 25) % 150, desktopRect.width - width));
+        const y = mobileUI
+            ? Math.max(0, Math.min(4, desktopRect.height - height))
+            : Math.max(0, Math.min(48 + (offset * 25) % 100, desktopRect.height - height));
 
         win.style.left = `${x}px`;
         win.style.top = `${y}px`;
@@ -865,7 +887,7 @@ const WindowManager = {
         `;
 
         const titlebar = win.querySelector('.window-titlebar');
-        titlebar.addEventListener('mousedown', event => {
+        titlebar.addEventListener('pointerdown', event => {
             if (!event.target.closest('.window-btn')) {
                 this.focus(id);
                 DragController.start(win, event);
@@ -878,7 +900,7 @@ const WindowManager = {
             }
         });
 
-        win.addEventListener('mousedown', () => this.focus(id));
+        win.addEventListener('pointerdown', () => this.focus(id));
 
         win.querySelector('.minimize-btn').onclick = () => this.minimize(id);
         win.querySelector('.maximize-btn').onclick = () => this.toggleMaximize(id);

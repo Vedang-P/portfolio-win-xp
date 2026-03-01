@@ -368,3 +368,23 @@
         font-size: 10px;
     }
 }
+
+@media (max-width: 560px) {
+    .taskbar-app {
+        min-width: 32px;
+        max-width: 40px;
+        flex: 0 0 36px;
+        padding: 0 3px;
+        justify-content: center;
+    }
+
+    .taskbar-app .app-title {
+        display: none;
+    }
+
+    .taskbar-app .app-icon {
+        width: 14px;
+        height: 14px;
+        margin: 0;
+    }
+}

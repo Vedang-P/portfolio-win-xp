@@ -473,6 +473,8 @@ a:hover {
         left: 8px;
         right: 8px;
         bottom: 8px;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .desktop-icon {
