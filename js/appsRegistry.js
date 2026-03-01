@@ -416,8 +416,8 @@ Open the Contact app for direct links.`
         return `
             <div class="contact-shell">
                 <div class="contact-header">
-                    <div class="contact-header-title">Reach Vedang</div>
-                    <div class="contact-header-subtitle">Choose email, GitHub, or LinkedIn.</div>
+                    <div class="contact-header-title">Feel free to reach out to me!</div>
+                    <div class="contact-header-subtitle"></div>
                 </div>
                 <div class="contact-content">${html}</div>
             </div>
