@@ -817,6 +817,11 @@ const WindowManager = {
     },
 
     open(appId) {
+        if (appId === 'resume') {
+            window.location.assign('https://drive.google.com/file/d/11FwOpNWYdeqgq1Qvu_1DWlvqXRDnmrpr/view?usp=sharing');
+            return;
+        }
+
         const app = AppsRegistry.getApp(appId);
         if (!app) {
             SoundManager.play('stop');
